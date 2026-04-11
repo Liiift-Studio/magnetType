@@ -1,0 +1,80 @@
+{
+	"name": "@liiift-studio/magnettype",
+	"version": "0.0.1",
+	"description": "Cursor-field per-word variable font axis variation and per-character legibility mode",
+	"type": "module",
+	"main": "dist/index.cjs",
+	"module": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"require": "./dist/index.cjs"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "vite build",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"lint": "tsc --noEmit",
+		"prepublishOnly": "npm run test && npm run build"
+	},
+	"peerDependencies": {
+		"react": ">=17",
+		"react-dom": ">=17"
+	},
+	"peerDependenciesMeta": {
+		"react": {
+			"optional": true
+		},
+		"react-dom": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@types/react": "^19.0.0",
+		"@vitejs/plugin-react": "^4.0.0",
+		"happy-dom": "^12.0.0",
+		"next": "16.2.2",
+		"react": "^19.0.0",
+		"typescript": "^5.0.0",
+		"vite": "^6.0.0",
+		"vite-plugin-dts": "^4.0.0",
+		"vitest": "^3.0.0"
+	},
+	"keywords": [
+		"typography",
+		"typographic",
+		"variable-font",
+		"font-variation-settings",
+		"cursor",
+		"mouse",
+		"proximity",
+		"field",
+		"legibility",
+		"wdth",
+		"wght",
+		"zero-dependencies",
+		"react",
+		"typescript",
+		"css"
+	],
+	"author": "Quinn Keaveney <quinn@liiift.studio>",
+	"license": "MIT",
+	"homepage": "https://magnettype.com",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Liiift-Studio/MagnetType.git"
+	},
+	"bugs": {
+		"url": "https://github.com/Liiift-Studio/MagnetType/issues"
+	},
+	"sideEffects": false,
+	"publishConfig": {
+		"access": "public"
+	}
+}
