@@ -1,7 +1,7 @@
 "use client"
 
 // Interactive demo for magnetType — field mode (cursor proximity) and legibility mode
-import { useState, useDeferredValue } from "react"
+import { useState, useDeferredValue, useEffect } from "react"
 import { MagnetTypeText } from "@liiift-studio/magnettype"
 import type { MagnetTypeModeType, FalloffType, MagnetModeType } from "@liiift-studio/magnettype"
 
@@ -14,6 +14,18 @@ const FIELD_PARAGRAPHS = [
 
 /** Confusable character text for legibility mode */
 const LEGIBILITY_TEXT = `Millennial criminal inflaming rill: distinguish il, 1I, rn, 0O at every size. Rindfleisch, millennium, ringtail, infiltration.`
+
+/** Gyro icon — spinning dial indicating device orientation control */
+function GyroIcon() {
+	return (
+		<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden>
+			<circle cx="7" cy="7" r="5.5" />
+			<circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none" />
+			<path d="M7 1.5 A5.5 5.5 0 0 1 12.5 7" strokeWidth="1.4" />
+			<path d="M11.5 5.5 L12.5 7 L13.8 6" strokeWidth="1.2" />
+		</svg>
+	)
+}
 
 /** Slider sub-component with label, value display, and aria-label */
 function Slider({ label, value, min, max, step, onChange }: {
@@ -72,6 +84,29 @@ function ToggleGroup<T extends string>({ label, options, value, onChange }: {
 	)
 }
 
+/** Boolean toggle button — highlights when active */
+function ToggleButton({ label, value, onChange, icon }: {
+	label: React.ReactNode
+	value: boolean
+	onChange: (v: boolean) => void
+	icon?: React.ReactNode
+}) {
+	return (
+		<button
+			onClick={() => onChange(!value)}
+			aria-pressed={value}
+			className="text-xs px-3 py-1 rounded-full border transition-opacity flex items-center gap-1.5"
+			style={{
+				borderColor: 'currentColor',
+				opacity: value ? 1 : 0.5,
+				background: value ? 'var(--btn-bg)' : 'transparent',
+			}}
+		>
+			{icon}{label}
+		</button>
+	)
+}
+
 /** Interactive magnetType demo — field and legibility modes */
 export default function Demo() {
 	const [mode, setMode] = useState<MagnetTypeModeType>('field')
@@ -80,6 +115,64 @@ export default function Demo() {
 	const [radius, setRadius] = useState(120)
 	const [falloff, setFalloff] = useState<FalloffType>('quadratic')
 	const [magnetMode, setMagnetMode] = useState<MagnetModeType>('attract')
+
+	// Props toggles for field mode
+	const [opacityProp, setOpacityProp] = useState(false)
+	const [italicProp, setItalicProp] = useState(false)
+
+	// Gyro state
+	const [gyroMode, setGyroMode] = useState(false)
+	const [showGyro, setShowGyro] = useState(false)
+
+	// Detect touch/gyro-capable devices after mount
+	useEffect(() => {
+		const hasHoverNone = window.matchMedia('(hover: none)').matches
+		const hasOrientation = typeof DeviceOrientationEvent !== 'undefined'
+		setShowGyro(hasHoverNone && hasOrientation)
+	}, [])
+
+	// Gyro → synthetic mousemove on document
+	useEffect(() => {
+		if (!gyroMode) return
+		let rafId: number | null = null
+		const handleOrientation = (e: DeviceOrientationEvent) => {
+			if (rafId !== null) return
+			rafId = requestAnimationFrame(() => {
+				rafId = null
+				if (e.gamma !== null && e.beta !== null) {
+					const x = Math.round(((e.gamma + 90) / 180) * window.innerWidth)
+					const clamped = Math.max(15, Math.min(90, e.beta))
+					const y = Math.round(((clamped - 15) / 75) * window.innerHeight)
+					document.dispatchEvent(new MouseEvent('mousemove', { clientX: x, clientY: y, bubbles: true }))
+				}
+			})
+		}
+		window.addEventListener('deviceorientation', handleOrientation)
+		return () => {
+			window.removeEventListener('deviceorientation', handleOrientation)
+			if (rafId !== null) cancelAnimationFrame(rafId)
+		}
+	}, [gyroMode])
+
+	/** Toggle gyro — requests iOS permission if needed */
+	const toggleGyro = async () => {
+		if (gyroMode) {
+			setGyroMode(false)
+			return
+		}
+		// iOS 13+ requires permission
+		const DOE = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> }
+		if (typeof DOE.requestPermission === 'function') {
+			try {
+				const permission = await DOE.requestPermission()
+				if (permission === 'granted') setGyroMode(true)
+			} catch {
+				// permission denied or unavailable
+			}
+		} else {
+			setGyroMode(true)
+		}
+	}
 
 	const dWeightHigh = useDeferredValue(weightHigh)
 	const dWeightLow = useDeferredValue(weightLow)
@@ -91,6 +184,14 @@ export default function Demo() {
 		lineHeight: "1.8",
 		fontVariationSettings: '"wght" 300, "opsz" 18, "wdth" 100',
 	}
+
+	// Build merged props object for field mode
+	const fieldProps = opacityProp || italicProp
+		? {
+			...(opacityProp ? { opacity: [0.5, 1.0] as [number, number] } : {}),
+			...(italicProp ? { italic: true } : {}),
+		}
+		: undefined
 
 	return (
 		<div className="w-full">
@@ -112,7 +213,7 @@ export default function Demo() {
 						<Slider label="Weight Low"  value={weightLow}  min={100} max={900} step={10} onChange={setWeightLow}  />
 						<Slider label="Radius"      value={radius}     min={60}  max={240} step={10} onChange={setRadius}     />
 					</div>
-					<div className="flex flex-wrap items-center gap-3 mb-8">
+					<div className="flex flex-wrap items-center gap-3 mb-4">
 						<ToggleGroup
 							label="Falloff"
 							options={['linear', 'quadratic'] as const}
@@ -126,6 +227,14 @@ export default function Demo() {
 							onChange={setMagnetMode}
 						/>
 					</div>
+					<div className="flex flex-wrap items-center gap-3 mb-8">
+						<span className="text-xs uppercase tracking-widest opacity-50">Props</span>
+						<ToggleButton label="opacity" value={opacityProp} onChange={setOpacityProp} />
+						<ToggleButton label="italic" value={italicProp} onChange={setItalicProp} />
+						{showGyro && (
+							<ToggleButton label="gyro" value={gyroMode} onChange={toggleGyro} icon={<GyroIcon />} />
+						)}
+					</div>
 					<div className="flex flex-col gap-8">
 						{FIELD_PARAGRAPHS.map((para, i) => (
 							<MagnetTypeText
@@ -135,6 +244,7 @@ export default function Demo() {
 								radius={dRadius}
 								falloff={falloff}
 								magnetMode={magnetMode}
+								props={fieldProps}
 								style={sampleStyle}
 							>
 								{para}
@@ -142,7 +252,7 @@ export default function Demo() {
 						))}
 					</div>
 					<p className="text-xs opacity-50 italic mt-8" style={{ lineHeight: "1.8" }}>
-						Move your cursor through the text. Each word responds to proximity independently — words inside the radius attract toward the peak weight, words outside hold at rest. Try switching between attract and repel, or between linear and quadratic falloff.
+						Move your cursor through the text. Each word responds to proximity independently — words inside the radius attract toward the peak weight, words outside hold at rest. Try switching between attract and repel, or between linear and quadratic falloff. Cross-paragraph by default: all paragraphs respond to the same cursor.
 					</p>
 				</>
 			)}
@@ -151,7 +261,7 @@ export default function Demo() {
 			{mode === 'legibility' && (
 				<>
 					<p className="text-xs opacity-50 mb-8">
-						Legibility mode applies a static wdth boost to visually confusable characters (il1I, rn, 0O, bdpqce). No cursor interaction — the boost is applied once at render time.
+						Legibility mode boosts the wdth axis on visually confusable characters (il1I, rn, 0O) in proportion to their confusion risk. Move your cursor over the text — characters near the cursor receive the full boost, fading out by distance. On touch devices the boost is always active.
 					</p>
 					<MagnetTypeText
 						mode="legibility"
