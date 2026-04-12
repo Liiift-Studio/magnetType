@@ -7,11 +7,10 @@ import type { MagnetTypeOptions } from '../core/types'
  * React hook that applies the magnetType effect to a ref'd element.
  *
  * For mode: 'field' — starts the cursor proximity rAF loop via startMagnetType.
- * The stop function is called on unmount and when options change.
- * No ResizeObserver needed — the rAF loop reads live getBoundingClientRect each frame.
+ * For mode: 'legibility' — starts the cursor-driven wdth boost via applyMagnetType.
  *
- * For mode: 'legibility' — applies the static per-character wdth boost via applyMagnetType.
- * Re-runs on container width changes via ResizeObserver, and after fonts load.
+ * Both modes return a stop function on mount and restart when options change.
+ * No ResizeObserver needed — the rAF loop reads live getBoundingClientRect each frame.
  *
  * Defaults to 'field' mode if mode is undefined.
  */
@@ -26,9 +25,10 @@ export function useMagnetType(options: MagnetTypeOptions) {
 	const mode = options.mode ?? 'field'
 
 	// Destructure options that should trigger a re-run when changed
-	const { axes, radius, falloff, magnetMode, wdthBoost } = options
-	// Serialise axes for dependency comparison (object identity would always trigger)
+	const { axes, radius, falloff, magnetMode, wdthBoost, scope } = options
+	// Serialise objects for dependency comparison (identity would always trigger)
 	const axesKey = axes ? JSON.stringify(axes) : undefined
+	const propsKey = options.props ? JSON.stringify(options.props) : undefined
 
 	const run = useCallback(() => {
 		const el = ref.current
@@ -38,7 +38,7 @@ export function useMagnetType(options: MagnetTypeOptions) {
 			originalHTMLRef.current = getCleanHTML(el)
 		}
 
-		// Stop any running field loop before re-running
+		// Stop any running loop before re-running
 		if (stopRef.current) {
 			stopRef.current()
 			stopRef.current = null
@@ -49,48 +49,15 @@ export function useMagnetType(options: MagnetTypeOptions) {
 		if (currentMode === 'field') {
 			stopRef.current = startMagnetType(el, originalHTMLRef.current, optionsRef.current)
 		} else {
-			applyMagnetType(el, originalHTMLRef.current, optionsRef.current)
+			stopRef.current = applyMagnetType(el, originalHTMLRef.current, optionsRef.current)
 		}
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [mode, axesKey, radius, falloff, magnetMode, wdthBoost])
+	}, [mode, axesKey, radius, falloff, magnetMode, wdthBoost, scope, propsKey])
 
 	useLayoutEffect(() => {
 		run()
 
-		if (typeof ResizeObserver === 'undefined') {
-			return () => {
-				if (stopRef.current) {
-					stopRef.current()
-					stopRef.current = null
-				}
-			}
-		}
-
-		// Field mode: no ResizeObserver — rAF loop reads live positions each frame
-		if ((optionsRef.current.mode ?? 'field') === 'field') {
-			return () => {
-				if (stopRef.current) {
-					stopRef.current()
-					stopRef.current = null
-				}
-			}
-		}
-
-		// Legibility mode: re-run on container width changes
-		let lastWidth = 0
-		let rafId = 0
-		const ro = new ResizeObserver((entries) => {
-			const w = Math.round(entries[0].contentRect.width)
-			if (w === lastWidth) return
-			lastWidth = w
-			cancelAnimationFrame(rafId)
-			rafId = requestAnimationFrame(run)
-		})
-		ro.observe(ref.current!)
-
 		return () => {
-			ro.disconnect()
-			cancelAnimationFrame(rafId)
 			if (stopRef.current) {
 				stopRef.current()
 				stopRef.current = null

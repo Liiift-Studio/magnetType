@@ -1,5 +1,5 @@
 // magnetType/src/__tests__/adjust.test.ts — core algorithm tests
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { applyMagnetType, removeMagnetType, getCleanHTML, startMagnetType } from '../core/adjust'
 import { MAGNET_TYPE_CLASSES } from '../core/types'
 
@@ -85,8 +85,9 @@ describe('magnetType', () => {
 	it('getCleanHTML strips injected char spans after applyMagnetType', () => {
 		const el = makeElement('il1I fish')
 		const original = getCleanHTML(el)
-		applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
+		const stop = applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
 		const cleaned = getCleanHTML(el)
+		stop()
 		expect(cleaned).not.toContain(MAGNET_TYPE_CLASSES.char)
 		expect(cleaned).toBe(original)
 	})
@@ -114,82 +115,149 @@ describe('magnetType', () => {
 		expect(() => applyMagnetType(el, original, { mode: 'legibility' })).not.toThrow()
 	})
 
+	it('applyMagnetType returns a stop function', () => {
+		const el = makeElement('il1I fish')
+		const original = getCleanHTML(el)
+		const stop = applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
+		expect(typeof stop).toBe('function')
+		stop()
+	})
+
 	it('applyMagnetType wraps confusable characters in char spans', () => {
 		// 'i', 'l', '1', 'I' are all risk-3 confusable
 		const el = makeElement('il1I')
 		const original = getCleanHTML(el)
-		applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
+		const stop = applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
 		const charSpans = el.querySelectorAll(`.${MAGNET_TYPE_CLASSES.char}`)
 		// All 4 characters should be wrapped
 		expect(charSpans.length).toBe(4)
+		stop()
 	})
 
-	it('applyMagnetType applies full wdthBoost to risk-3 chars', () => {
+	it('applyMagnetType char spans start at base wdth before cursor interaction', () => {
+		// Before any cursor movement, all spans should be at base wdth (100)
+		const el = makeElement('il1I')
+		const original = getCleanHTML(el)
+		const stop = applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
+		const charSpans = el.querySelectorAll<HTMLElement>(`.${MAGNET_TYPE_CLASSES.char}`)
+		charSpans.forEach((span) => {
+			expect(span.style.fontVariationSettings).toContain('"wdth" 100')
+		})
+		stop()
+	})
+
+	it('applyMagnetType applies wdth boost when cursor is directly over a char span', () => {
+		// Capture rAF callback without auto-firing — avoids infinite recursion from frame self-scheduling
+		let pendingRaf: FrameRequestCallback | null = null
+		const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+			pendingRaf = cb; return 0
+		})
+
 		const el = makeElement('i')
 		const original = getCleanHTML(el)
-		applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
+		// risk-3 char, wdthBoost 6, cursor at (5, 10) — char rect is {left:0, top:0, width:10, height:20}
+		// center=(5,10), dist=0, strength=1, boost = 6 * (3/3) * 1 = 6, wdth = 106
+		const stop = applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6, radius: 200 })
+
+		// Flush scroll-restore rAF, then clear
+		if (pendingRaf) { pendingRaf(0); pendingRaf = null }
+
+		document.dispatchEvent(new MouseEvent('mousemove', { clientX: 5, clientY: 10, bubbles: true }))
+		// Fire the frame rAF once — updates spans, self-schedules another (which we don't fire)
+		if (pendingRaf) { pendingRaf(0); pendingRaf = null }
+
 		const span = el.querySelector<HTMLElement>(`.${MAGNET_TYPE_CLASSES.char}`)
-		expect(span).toBeTruthy()
-		// Risk 3 gets full boost: base 100 + 6 * (3/3) = 106
 		expect(span?.style.fontVariationSettings).toContain('"wdth" 106')
+
+		stop()
+		rafSpy.mockRestore()
 	})
 
-	it('applyMagnetType applies 2/3 wdthBoost to risk-2 chars', () => {
+	it('applyMagnetType applies partial wdth boost to risk-2 char at full strength', () => {
+		let pendingRaf: FrameRequestCallback | null = null
+		const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+			pendingRaf = cb; return 0
+		})
+
 		const el = makeElement('0')
 		const original = getCleanHTML(el)
-		applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
+		// risk-2 char, wdthBoost 6, cursor centered on span: boost = 6 * (2/3) * 1 = 4, wdth = 104
+		const stop = applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6, radius: 200 })
+		if (pendingRaf) { pendingRaf(0); pendingRaf = null }
+
+		document.dispatchEvent(new MouseEvent('mousemove', { clientX: 5, clientY: 10, bubbles: true }))
+		if (pendingRaf) { pendingRaf(0); pendingRaf = null }
+
 		const span = el.querySelector<HTMLElement>(`.${MAGNET_TYPE_CLASSES.char}`)
-		expect(span).toBeTruthy()
-		// Risk 2 gets 2/3 boost: base 100 + 6 * (2/3) = 104
 		expect(span?.style.fontVariationSettings).toContain('"wdth" 104')
+
+		stop()
+		rafSpy.mockRestore()
 	})
 
-	it('applyMagnetType applies 1/3 wdthBoost to risk-1 chars', () => {
+	it('applyMagnetType applies partial wdth boost to risk-1 char at full strength', () => {
+		let pendingRaf: FrameRequestCallback | null = null
+		const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+			pendingRaf = cb; return 0
+		})
+
 		const el = makeElement('n')
 		const original = getCleanHTML(el)
-		applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
+		// risk-1 char, wdthBoost 6, cursor centered: boost = 6 * (1/3) * 1 = 2, wdth = 102
+		const stop = applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6, radius: 200 })
+		if (pendingRaf) { pendingRaf(0); pendingRaf = null }
+
+		document.dispatchEvent(new MouseEvent('mousemove', { clientX: 5, clientY: 10, bubbles: true }))
+		if (pendingRaf) { pendingRaf(0); pendingRaf = null }
+
 		const span = el.querySelector<HTMLElement>(`.${MAGNET_TYPE_CLASSES.char}`)
-		expect(span).toBeTruthy()
-		// Risk 1 gets 1/3 boost: base 100 + 6 * (1/3) = 102
 		expect(span?.style.fontVariationSettings).toContain('"wdth" 102')
+
+		stop()
+		rafSpy.mockRestore()
 	})
 
 	it('applyMagnetType does not wrap non-confusable characters', () => {
 		// 'x', 'y', 'z' are not in CONFUSABLE
 		const el = makeElement('xyz')
 		const original = getCleanHTML(el)
-		applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
+		const stop = applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
 		const charSpans = el.querySelectorAll(`.${MAGNET_TYPE_CLASSES.char}`)
 		expect(charSpans.length).toBe(0)
+		stop()
 	})
 
 	it('applyMagnetType mixed: wraps only confusable chars in mixed string', () => {
 		// 'a' is not confusable, 'i' is risk-3
 		const el = makeElement('ai')
 		const original = getCleanHTML(el)
-		applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
+		const stop = applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
 		const charSpans = el.querySelectorAll(`.${MAGNET_TYPE_CLASSES.char}`)
 		// Only 'i' should be wrapped
 		expect(charSpans.length).toBe(1)
 		expect(charSpans[0].textContent).toBe('i')
+		stop()
 	})
 
 	it('applyMagnetType preserves <em> and <strong> elements', () => {
 		const el = makeElement('<em>italic</em> and <strong>bold</strong>')
 		const original = getCleanHTML(el)
-		applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
+		const stop = applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
 		expect(el.querySelector('em')).toBeTruthy()
 		expect(el.querySelector('strong')).toBeTruthy()
+		stop()
 	})
 
-	it('applyMagnetType is idempotent — applying twice produces the same output', () => {
+	it('applyMagnetType is idempotent — applying twice produces the same DOM structure', () => {
 		const el = makeElement('il fish')
 		const original = getCleanHTML(el)
-		applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
+		const stop1 = applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
 		const afterFirst = el.innerHTML
+		stop1()
 
-		applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
+		const stop2 = applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
 		const afterSecond = el.innerHTML
+		stop2()
 
 		expect(afterSecond).toBe(afterFirst)
 	})
@@ -199,8 +267,16 @@ describe('magnetType', () => {
 	it('removeMagnetType restores original HTML after legibility apply', () => {
 		const el = makeElement('<em>ill</em> fish')
 		const original = getCleanHTML(el)
-		applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
-		removeMagnetType(el, original)
+		const stop = applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
+		stop()
+		expect(el.innerHTML).toBe(original)
+	})
+
+	it('applyMagnetType stop function restores original HTML', () => {
+		const el = makeElement('ill fish')
+		const original = getCleanHTML(el)
+		const stop = applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
+		stop()
 		expect(el.innerHTML).toBe(original)
 	})
 
@@ -252,5 +328,111 @@ describe('magnetType', () => {
 			stop = startMagnetType(el, original, { mode: 'field' })
 		}).not.toThrow()
 		stop?.()
+	})
+
+	it('startMagnetType responds to document mousemove by default (scope: document)', () => {
+		let pendingRaf: FrameRequestCallback | null = null
+		const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+			pendingRaf = cb; return 0
+		})
+
+		const el = makeElement('Hello world')
+		const original = getCleanHTML(el)
+		const stop = startMagnetType(el, original, { mode: 'field', axes: { wght: [300, 700] }, radius: 200 })
+
+		// Flush scroll-restore rAF
+		if (pendingRaf) { pendingRaf(0); pendingRaf = null }
+
+		// Dispatch on document — should drive the field even from outside the element
+		document.dispatchEvent(new MouseEvent('mousemove', { clientX: 2, clientY: 10, bubbles: true }))
+		if (pendingRaf) { pendingRaf(0); pendingRaf = null }
+
+		// At least one word span should have a non-rest wght value
+		const spans = Array.from(el.querySelectorAll<HTMLElement>(`.${MAGNET_TYPE_CLASSES.word}`))
+		const anyBoosted = spans.some((span) =>
+			span.style.fontVariationSettings !== '' &&
+			!span.style.fontVariationSettings.includes('"wght" 300'),
+		)
+		expect(anyBoosted).toBe(true)
+
+		stop()
+		rafSpy.mockRestore()
+	})
+
+	it('startMagnetType scope: element responds to element mousemove', () => {
+		let pendingRaf: FrameRequestCallback | null = null
+		const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+			pendingRaf = cb; return 0
+		})
+
+		const el = makeElement('Hello world')
+		const original = getCleanHTML(el)
+		const stop = startMagnetType(el, original, { mode: 'field', scope: 'element', axes: { wght: [300, 700] } })
+
+		// Flush scroll-restore rAF
+		if (pendingRaf) { pendingRaf(0); pendingRaf = null }
+
+		// Dispatch mousemove directly on the element — should schedule the field loop rAF
+		el.dispatchEvent(new MouseEvent('mousemove', { clientX: 5, clientY: 10, bubbles: true }))
+
+		expect(pendingRaf).not.toBeNull()
+
+		stop()
+		rafSpy.mockRestore()
+	})
+
+	// ── props — opacity and italic ──────────────────────────────────────────────
+
+	it('startMagnetType applies opacity prop on cursor proximity', () => {
+		let pendingRaf: FrameRequestCallback | null = null
+		const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+			pendingRaf = cb; return 0
+		})
+
+		const el = makeElement('Hello world')
+		const original = getCleanHTML(el)
+		const stop = startMagnetType(el, original, {
+			mode: 'field',
+			radius: 200,
+			props: { opacity: [1, 0.5] },
+		})
+		if (pendingRaf) { pendingRaf(0); pendingRaf = null }
+
+		document.dispatchEvent(new MouseEvent('mousemove', { clientX: 2, clientY: 10, bubbles: true }))
+		if (pendingRaf) { pendingRaf(0); pendingRaf = null }
+
+		const spans = Array.from(el.querySelectorAll<HTMLElement>(`.${MAGNET_TYPE_CLASSES.word}`))
+		const anyOpacity = spans.some((span) => span.style.opacity !== '' && span.style.opacity !== '1')
+		expect(anyOpacity).toBe(true)
+
+		stop()
+		rafSpy.mockRestore()
+	})
+
+	it('applyMagnetType applies opacity prop on cursor proximity', () => {
+		let pendingRaf: FrameRequestCallback | null = null
+		const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+			pendingRaf = cb; return 0
+		})
+
+		const el = makeElement('i')
+		const original = getCleanHTML(el)
+		const stop = applyMagnetType(el, original, {
+			mode: 'legibility',
+			radius: 200,
+			props: { opacity: [1, 0.5] },
+		})
+		if (pendingRaf) { pendingRaf(0); pendingRaf = null }
+
+		document.dispatchEvent(new MouseEvent('mousemove', { clientX: 5, clientY: 10, bubbles: true }))
+		if (pendingRaf) { pendingRaf(0); pendingRaf = null }
+
+		const span = el.querySelector<HTMLElement>(`.${MAGNET_TYPE_CLASSES.char}`)
+		// At full strength (cursor centered on char), opacity should be peakValue = 0.5
+		expect(span?.style.opacity).toBeTruthy()
+		expect(parseFloat(span?.style.opacity ?? '1')).toBeLessThan(1)
+
+		stop()
+		rafSpy.mockRestore()
 	})
 })
