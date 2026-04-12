@@ -1,6 +1,6 @@
 {
 	"name": "@liiift-studio/magnettype",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "Cursor-field per-word variable font axis variation and per-character legibility mode",
 	"type": "module",
 	"main": "dist/index.cjs",
