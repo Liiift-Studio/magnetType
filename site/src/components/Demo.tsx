@@ -85,16 +85,18 @@ function ToggleGroup<T extends string>({ label, options, value, onChange }: {
 }
 
 /** Boolean toggle button — highlights when active */
-function ToggleButton({ label, value, onChange, icon }: {
+function ToggleButton({ label, value, onChange, icon, title }: {
 	label: React.ReactNode
 	value: boolean
 	onChange: (v: boolean) => void
 	icon?: React.ReactNode
+	title?: string
 }) {
 	return (
 		<button
 			onClick={() => onChange(!value)}
 			aria-pressed={value}
+			title={title}
 			className="text-xs px-3 py-1 rounded-full border transition-opacity flex items-center gap-1.5"
 			style={{
 				borderColor: 'currentColor',
@@ -232,9 +234,18 @@ export default function Demo() {
 						<ToggleButton label="opacity" value={opacityProp} onChange={setOpacityProp} />
 						<ToggleButton label="italic" value={italicProp} onChange={setItalicProp} />
 						{showGyro && (
-							<ToggleButton label="gyro" value={gyroMode} onChange={toggleGyro} icon={<GyroIcon />} />
+							<ToggleButton
+								label={gyroMode ? "Gaze active" : "gyro"}
+								value={gyroMode}
+								onChange={toggleGyro}
+								icon={<GyroIcon />}
+								title="On glasses: head orientation = gaze position. Tilt to simulate."
+							/>
 						)}
 					</div>
+					<p className="text-xs opacity-50 mb-2" style={{ lineHeight: "1.6" }}>
+						Field mode — each character pulls toward its nearest magnetic pole (gaze direction on glasses).
+					</p>
 					<div className="flex flex-col gap-8">
 						{FIELD_PARAGRAPHS.map((para, i) => (
 							<MagnetTypeText
@@ -252,7 +263,10 @@ export default function Demo() {
 						))}
 					</div>
 					<p className="text-xs opacity-50 italic mt-8" style={{ lineHeight: "1.8" }}>
-						Move your cursor through the text. Each word responds to proximity independently — words inside the radius attract toward the peak weight, words outside hold at rest. Try switching between attract and repel, or between linear and quadratic falloff. Cross-paragraph by default: all paragraphs respond to the same cursor.
+						{gyroMode
+							? "On smart glasses, head orientation maps directly to gaze. magnetType responds to where you're looking — axis variation follows your gaze across the text. Each word responds to proximity independently: words inside the radius attract toward the peak weight, words outside hold at rest."
+							: "Move your cursor through the text — on glasses, this is gaze. Each word responds to proximity independently: words inside the radius attract toward the peak weight, words outside hold at rest. Try switching between attract and repel, or between linear and quadratic falloff. Cross-paragraph by default: all paragraphs respond to the same cursor."
+						}
 					</p>
 				</>
 			)}
