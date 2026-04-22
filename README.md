@@ -1,5 +1,7 @@
 # magnetType
 
+[![npm](https://img.shields.io/npm/v/%40liiift-studio%2Fmagnettype.svg)](https://www.npmjs.com/package/@liiift-studio/magnettype) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![part of liiift type-tools](https://img.shields.io/badge/liiift-type--tools-blueviolet)](https://github.com/Liiift-Studio/type-tools)
+
 CSS `font-variation-settings` applies a single value to the whole element — there is no native way to drive axis values per word from cursor proximity, or to selectively widen visually confusable characters for legibility. magnetType adds both.
 
 **[magnettype.com](https://magnettype.com)** · [npm](https://www.npmjs.com/package/@liiift-studio/magnettype) · [GitHub](https://github.com/Liiift-Studio/MagnetType)
