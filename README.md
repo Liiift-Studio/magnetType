@@ -140,6 +140,7 @@ const legibilityOpts: MagnetTypeOptions = {
 | `falloff` | `'quadratic'` | *(field mode only)* Falloff curve. `'linear'` — strength decreases linearly with distance. `'quadratic'` — strength decreases as distance², giving a tighter hot zone and a sharper peak feel |
 | `magnetMode` | `'attract'` | *(field mode only)* `'attract'` — words near the cursor approach `peakValue`. `'repel'` — words near the cursor stay at `restValue`; words farther away approach `peakValue` |
 | `wdthBoost` | `6` | *(legibility mode only)* `wdth` axis units added to confusable characters, scaled by risk level. Risk 3 characters (`i l 1 I`) receive the full boost; risk 2 characters (`r 0 O`) receive ⅔; risk 1 characters (`n m o b d p q c e`) receive ⅓ |
+| `transitionMs` | `0` | Duration in milliseconds for the CSS transition back to rest values when the cursor leaves (or a touch ends). `0` preserves the existing instant snap. When > 0, `font-variation-settings` animates back over the given duration using `ease` easing. The transition is cleared immediately on the next `mousemove`/`touchmove` so live tracking is not delayed |
 | `as` | `'p'` | HTML element to render, e.g. `'h1'`, `'div'`, `'span'`. Accepts any valid React element type. *(React component only)* |
 
 ---
@@ -187,8 +188,6 @@ The package itself has zero runtime dependencies. Do not remove this entry.
 
 ## Future improvements
 
-- **Touch support** — `touchmove` events for mobile field mode; currently `mousemove`-only, so the effect is desktop-exclusive
-- **Smooth transition on stop** — animate axis values back to `restValue` over a short duration when the cursor leaves, rather than snapping on the next rAF tick
 - **Custom confusable table** — allow callers to pass their own `Record<string, number>` to override or extend the built-in character risk map for language- or font-specific tuning
 - **Axis clamping** — optional per-axis min/max clamp to prevent axis values from exceeding a font's supported range, avoiding undefined browser rendering behaviour
 - **SSR hydration** — pre-render legibility mode markup on the server so boosted characters are present from first paint without a client-side flash

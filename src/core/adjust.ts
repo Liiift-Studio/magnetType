@@ -149,6 +149,7 @@ export function applyMagnetType(
 	const falloff = options.falloff ?? DEFAULTS.falloff
 	const scope = options.scope ?? DEFAULTS.scope
 	const props = options.props
+	const transitionMs = options.transitionMs ?? 0
 
 	// Save scroll position — iOS Safari does not support overflow-anchor: none
 	const scrollY = window.scrollY
@@ -223,15 +224,28 @@ export function applyMagnetType(
 	let rafId = 0
 	let active = true
 
+	// Timer handle for removing the transition property after transitionMs
+	let transitionTimer: ReturnType<typeof setTimeout> | null = null
+
 	function frame(): void {
 		if (!active) return
 
 		if (!cursorInside) {
-			// Cursor left — reset all chars to base wdth
+			// Cursor left — reset all chars to base wdth, optionally with a CSS transition
 			charSpans.forEach(({ span }) => {
+				if (transitionMs > 0) {
+					span.style.transition = `font-variation-settings ${transitionMs}ms ease`
+				}
 				span.style.fontVariationSettings = overrideAxis(baseFVS, 'wdth', baseWdth)
 				if (props) resetProps(span, props)
 			})
+			if (transitionMs > 0) {
+				if (transitionTimer !== null) clearTimeout(transitionTimer)
+				transitionTimer = setTimeout(() => {
+					charSpans.forEach(({ span }) => { span.style.transition = '' })
+					transitionTimer = null
+				}, transitionMs)
+			}
 			rafId = 0
 			return
 		}
@@ -240,6 +254,8 @@ export function applyMagnetType(
 		const rects = charSpans.map(({ span }) => span.getBoundingClientRect())
 
 		charSpans.forEach(({ span, riskLevel }, i) => {
+			// Clear any outgoing transition so live tracking is not delayed
+			span.style.transition = ''
 			const rect = rects[i]
 			const cx = rect.left + rect.width / 2
 			const cy = rect.top + rect.height / 2
@@ -269,15 +285,33 @@ export function applyMagnetType(
 		if (rafId === 0) rafId = requestAnimationFrame(frame)
 	}
 
+	function onTouchMove(e: TouchEvent): void {
+		if (e.touches.length === 0) return
+		cursorX = e.touches[0].clientX
+		cursorY = e.touches[0].clientY
+		if (!cursorInside) cursorInside = true
+		if (rafId === 0) rafId = requestAnimationFrame(frame)
+	}
+
+	function onTouchEnd(): void {
+		cursorInside = false
+		if (rafId === 0) rafId = requestAnimationFrame(frame)
+	}
+
 	const eventTarget = scope === 'document' ? document : element
 	eventTarget.addEventListener('mousemove', onMouseMove as EventListener)
 	eventTarget.addEventListener('mouseleave', onMouseLeave as EventListener)
+	eventTarget.addEventListener('touchmove', onTouchMove as EventListener, { passive: true })
+	eventTarget.addEventListener('touchend', onTouchEnd as EventListener)
 
 	return () => {
 		active = false
 		cancelAnimationFrame(rafId)
+		if (transitionTimer !== null) clearTimeout(transitionTimer)
 		eventTarget.removeEventListener('mousemove', onMouseMove as EventListener)
 		eventTarget.removeEventListener('mouseleave', onMouseLeave as EventListener)
+		eventTarget.removeEventListener('touchmove', onTouchMove as EventListener)
+		eventTarget.removeEventListener('touchend', onTouchEnd as EventListener)
 		element.innerHTML = originalHTML
 	}
 }
@@ -318,6 +352,7 @@ export function startMagnetType(
 	const magnetMode = options.magnetMode ?? DEFAULTS.magnetMode
 	const scope = options.scope ?? DEFAULTS.scope
 	const props = options.props
+	const transitionMs = options.transitionMs ?? 0
 
 	// Save scroll — iOS Safari does not support overflow-anchor: none
 	const scrollY = window.scrollY
@@ -387,15 +422,28 @@ export function startMagnetType(
 	let rafId = 0
 	let active = true
 
+	// Timer handle for removing the transition property after transitionMs
+	let transitionTimer: ReturnType<typeof setTimeout> | null = null
+
 	function frame(): void {
 		if (!active) return
 
 		if (!cursorInside) {
-			// Cursor left — reset to restValues
+			// Cursor left — reset to restValues, optionally with a CSS transition
 			wordSpans.forEach((span) => {
+				if (transitionMs > 0) {
+					span.style.transition = `font-variation-settings ${transitionMs}ms ease`
+				}
 				span.style.fontVariationSettings = restFVS
 				if (props) resetProps(span, props)
 			})
+			if (transitionMs > 0) {
+				if (transitionTimer !== null) clearTimeout(transitionTimer)
+				transitionTimer = setTimeout(() => {
+					wordSpans.forEach((span) => { span.style.transition = '' })
+					transitionTimer = null
+				}, transitionMs)
+			}
 			rafId = 0
 			return
 		}
@@ -404,6 +452,8 @@ export function startMagnetType(
 		const rects = wordSpans.map((span) => span.getBoundingClientRect())
 
 		wordSpans.forEach((span, i) => {
+			// Clear any outgoing transition so live tracking is not delayed
+			span.style.transition = ''
 			const rect = rects[i]
 			const cx = rect.left + rect.width / 2
 			const cy = rect.top + rect.height / 2
@@ -441,15 +491,33 @@ export function startMagnetType(
 		if (rafId === 0) rafId = requestAnimationFrame(frame)
 	}
 
+	function onTouchMove(e: TouchEvent): void {
+		if (e.touches.length === 0) return
+		cursorX = e.touches[0].clientX
+		cursorY = e.touches[0].clientY
+		if (!cursorInside) cursorInside = true
+		if (rafId === 0) rafId = requestAnimationFrame(frame)
+	}
+
+	function onTouchEnd(): void {
+		cursorInside = false
+		if (rafId === 0) rafId = requestAnimationFrame(frame)
+	}
+
 	const eventTarget = scope === 'document' ? document : element
 	eventTarget.addEventListener('mousemove', onMouseMove as EventListener)
 	eventTarget.addEventListener('mouseleave', onMouseLeave as EventListener)
+	eventTarget.addEventListener('touchmove', onTouchMove as EventListener, { passive: true })
+	eventTarget.addEventListener('touchend', onTouchEnd as EventListener)
 
 	return () => {
 		active = false
 		cancelAnimationFrame(rafId)
+		if (transitionTimer !== null) clearTimeout(transitionTimer)
 		eventTarget.removeEventListener('mousemove', onMouseMove as EventListener)
 		eventTarget.removeEventListener('mouseleave', onMouseLeave as EventListener)
+		eventTarget.removeEventListener('touchmove', onTouchMove as EventListener)
+		eventTarget.removeEventListener('touchend', onTouchEnd as EventListener)
 		element.innerHTML = originalHTML
 	}
 }

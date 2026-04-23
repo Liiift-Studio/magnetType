@@ -119,6 +119,18 @@ export interface MagnetTypeOptions {
 	 * Risk 3 characters receive wdthBoost × (3/3) = full boost at peak.
 	 */
 	wdthBoost?: number
+
+	// ── transition options ──────────────────────────────────────────────────────
+
+	/**
+	 * Duration in milliseconds for the CSS transition back to rest values when the
+	 * cursor leaves (mouseleave / touchend). Default: 0 (instant snap, no transition).
+	 *
+	 * When > 0, sets `transition: font-variation-settings <transitionMs>ms ease` on
+	 * each span at leave time, then removes the transition property after the duration.
+	 * On mousemove / touchmove the transition is cleared so live tracking is not delayed.
+	 */
+	transitionMs?: number
 }
 
 /** CSS class names injected by magnetType — use these to target generated markup */
