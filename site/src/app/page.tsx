@@ -45,7 +45,7 @@ export default function Home() {
 				<div className="prose-grid grid grid-cols-1 sm:grid-cols-2 gap-12 text-sm leading-relaxed opacity-70">
 					<div className="flex flex-col gap-3">
 						<p className="font-semibold opacity-100 text-base">The cursor field</p>
-						<p>Each word gets a span. On every animation frame, the distance from the cursor to each word&apos;s center is measured. Words within the radius receive a font-variation-settings value interpolated between rest and peak — closer words get more of the peak value.</p>
+						<p>Each word gets a span. On every animation frame, the distance from the cursor to each word&rsquo;s center is measured. Words within the radius receive a font-variation-settings value interpolated between rest and peak — closer words get more of the peak value.</p>
 					</div>
 					<div className="flex flex-col gap-3">
 						<p className="font-semibold opacity-100 text-base">Attract and repel</p>

@@ -264,7 +264,7 @@ export default function Demo() {
 					</div>
 					<p className="text-xs opacity-50 italic mt-8" style={{ lineHeight: "1.8" }}>
 						{gyroMode
-							? "On smart glasses, head orientation maps directly to gaze. magnetType responds to where you're looking — axis variation follows your gaze across the text. Each word responds to proximity independently: words inside the radius attract toward the peak weight, words outside hold at rest."
+							? "On smart glasses, head orientation maps directly to gaze. magnetType responds to where you’re looking — axis variation follows your gaze across the text. Each word responds to proximity independently: words inside the radius attract toward the peak weight, words outside hold at rest."
 							: "Move your cursor through the text — on glasses, this is gaze. Each word responds to proximity independently: words inside the radius attract toward the peak weight, words outside hold at rest. Try switching between attract and repel, or between linear and quadratic falloff. Cross-paragraph by default: all paragraphs respond to the same cursor."
 						}
 					</p>
