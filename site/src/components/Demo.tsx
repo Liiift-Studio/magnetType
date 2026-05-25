@@ -1,8 +1,8 @@
 "use client"
 
-// Interactive demo for magnetType — field mode (cursor proximity) and legibility mode
+// Interactive demo for magnetType — field mode, legibility mode, and block mode
 import { useState, useDeferredValue, useEffect } from "react"
-import { MagnetTypeText } from "@liiift-studio/magnettype"
+import { MagnetTypeText, MagnetBlock } from "@liiift-studio/magnettype"
 import type { MagnetTypeModeType, FalloffType, MagnetModeType } from "@liiift-studio/magnettype"
 
 /** Prose paragraphs for field mode demo */
@@ -109,14 +109,29 @@ function ToggleButton({ label, value, onChange, icon, title }: {
 	)
 }
 
-/** Interactive magnetType demo — field and legibility modes */
+/** Prose paragraphs for block mode demo */
+const BLOCK_PARAGRAPHS = [
+	`Typography has always been a conversation between the reader and the page. Each word on a printed sheet is fixed — its weight locked at the moment of setting. But type on screen can breathe, respond, and shift its gravity as the cursor passes through.`,
+	`Move your cursor slowly across the paragraphs. Each word nearest the cursor rises toward its peak weight, fading back as you move away. The result is a living texture that responds to presence — not animation for its own sake, but legibility shaped by attention.`,
+	`Unlike the field effect which works character by character, block mode operates at the word level across any block element — including those with inline code, links, or other mixed content. The weight gradient follows the cursor continuously, adjusted on scroll so the effect never drifts.`,
+]
+
+/** Interactive magnetType demo — field, legibility, and block modes */
 export default function Demo() {
-	const [mode, setMode] = useState<MagnetTypeModeType>('field')
+	const [mode, setMode] = useState<MagnetTypeModeType | 'block'>('field')
 	const [weightHigh, setWeightHigh] = useState(600)
 	const [weightLow, setWeightLow] = useState(300)
 	const [radius, setRadius] = useState(120)
 	const [falloff, setFalloff] = useState<FalloffType>('quadratic')
 	const [magnetMode, setMagnetMode] = useState<MagnetModeType>('attract')
+
+	// Block mode state
+	const [blockSpreadRadius, setBlockSpreadRadius] = useState(80)
+	const [blockWeightHigh, setBlockWeightHigh] = useState(600)
+	const [blockWeightLow, setBlockWeightLow] = useState(300)
+	const dBlockSpreadRadius = useDeferredValue(blockSpreadRadius)
+	const dBlockWeightHigh = useDeferredValue(blockWeightHigh)
+	const dBlockWeightLow = useDeferredValue(blockWeightLow)
 
 	// Props toggles for field mode
 	const [opacityProp, setOpacityProp] = useState(false)
@@ -201,7 +216,7 @@ export default function Demo() {
 			<div className="flex flex-wrap items-center gap-3 mb-6">
 				<ToggleGroup
 					label="Mode"
-					options={['field', 'legibility'] as const}
+					options={['field', 'legibility', 'block'] as const}
 					value={mode}
 					onChange={setMode}
 				/>
@@ -286,6 +301,36 @@ export default function Demo() {
 					</MagnetTypeText>
 					<p className="text-xs opacity-50 italic mt-8" style={{ lineHeight: "1.8" }}>
 						Characters like il, 1I, rn, and 0O receive a proportional wdth boost based on their confusion risk — the most ambiguous get the full boost, lower-risk characters get a partial boost. The result is marginally wider letterforms exactly where disambiguation matters most.
+					</p>
+				</>
+			)}
+
+			{/* Block mode */}
+			{mode === 'block' && (
+				<>
+					<div className="grid grid-cols-2 sm:grid-cols-3 gap-6 mb-8">
+						<Slider label="Spread Radius" value={blockSpreadRadius} min={20} max={300} step={10} onChange={setBlockSpreadRadius} />
+						<Slider label="Weight High"   value={blockWeightHigh}   min={100} max={900} step={10} onChange={setBlockWeightHigh}   />
+						<Slider label="Weight Low"    value={blockWeightLow}    min={100} max={900} step={10} onChange={setBlockWeightLow}    />
+					</div>
+					<p className="text-xs opacity-50 mb-6" style={{ lineHeight: "1.6" }}>
+						Block mode — per-word weight gradient across any block element. Works with mixed content (inline code, links, etc). Move your cursor through the paragraphs below.
+					</p>
+					<div className="flex flex-col gap-8">
+						{BLOCK_PARAGRAPHS.map((para, i) => (
+							<MagnetBlock
+								key={i}
+								spreadRadius={dBlockSpreadRadius}
+								minWeight={dBlockWeightLow}
+								maxWeight={dBlockWeightHigh}
+								style={sampleStyle}
+							>
+								{para}
+							</MagnetBlock>
+						))}
+					</div>
+					<p className="text-xs opacity-50 italic mt-8" style={{ lineHeight: "1.8" }}>
+						spreadRadius controls how far from the cursor each word's weight fades to its minimum. Use proximityRadius to gate the effect to cursor near the element edge, or omit it to always respond. Both props are independent and combinable.
 					</p>
 				</>
 			)}
