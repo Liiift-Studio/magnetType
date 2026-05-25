@@ -120,6 +120,34 @@ export interface MagnetTypeOptions {
 	 */
 	wdthBoost?: number
 
+	// ── performance options ─────────────────────────────────────────────────────
+
+	/**
+	 * Cache word/character centre positions in page-relative coordinates after setup,
+	 * eliminating getBoundingClientRect calls during the active interaction loop.
+	 * The cache is rebuilt on resize and after fonts load. Disable if the element lives
+	 * inside a custom scroll container (overflow: scroll on a non-window element) —
+	 * page coordinates are computed using window.scrollX/Y and will be incorrect when
+	 * a nested element is the scroll parent.
+	 * @default true
+	 */
+	cachePositions?: boolean
+
+	// ── layout options ───────────────────────────────────────────────────────────
+
+	/**
+	 * Apply compensating letter-spacing to keep line lengths stable as font weight
+	 * changes. Measures the element's text width at rest and peak weight, then applies
+	 * proportional negative letter-spacing per word/character as weight rises, cancelling
+	 * the advance-width increase that would otherwise cause text to reflow.
+	 *
+	 * Disable if you prefer natural bold letter-spacing, or if the font expands characters
+	 * very unevenly across the weight axis (the compensation is a per-element average and
+	 * may not perfectly cancel highly variable per-character expansion).
+	 * @default true
+	 */
+	stabilizeLayout?: boolean
+
 	// ── transition options ──────────────────────────────────────────────────────
 
 	/**

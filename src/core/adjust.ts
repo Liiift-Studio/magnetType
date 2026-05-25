@@ -150,6 +150,7 @@ export function applyMagnetType(
 	const scope = options.scope ?? DEFAULTS.scope
 	const props = options.props
 	const transitionMs = options.transitionMs ?? 0
+	const cachePositions = options.cachePositions ?? true
 
 	// Save scroll position — iOS Safari does not support overflow-anchor: none
 	const scrollY = window.scrollY
@@ -217,6 +218,29 @@ export function applyMagnetType(
 		charSpans.forEach(({ span }) => resetProps(span, props))
 	}
 
+	// --- Position cache (page-relative char centres, avoids per-frame getBoundingClientRect) ---
+	type CharPos = { cx: number; cy: number }
+	let charPositions: CharPos[] = []
+	let cacheValid = false
+
+	function buildCharCache() {
+		const sx = window.scrollX
+		const sy = window.scrollY
+		charPositions = charSpans.map(({ span }) => {
+			const r = span.getBoundingClientRect()
+			return { cx: (r.left + r.right) / 2 + sx, cy: (r.top + r.bottom) / 2 + sy }
+		})
+		cacheValid = true
+	}
+
+	let ro: ResizeObserver | null = null
+	if (cachePositions) {
+		buildCharCache()
+		ro = new ResizeObserver(() => { cacheValid = false })
+		ro.observe(element)
+		document.fonts?.ready?.then(() => { cacheValid = false })
+	}
+
 	// --- rAF loop state ---
 	let cursorX = -9999
 	let cursorY = -9999
@@ -250,18 +274,27 @@ export function applyMagnetType(
 			return
 		}
 
-		// Batch-read char span rects, then write styles
-		const rects = charSpans.map(({ span }) => span.getBoundingClientRect())
+		// Resolve cursor and char centres in a common coordinate space
+		if (cachePositions && !cacheValid) buildCharCache()
+		const pageCursorX = cachePositions ? cursorX + window.scrollX : cursorX
+		const pageCursorY = cachePositions ? cursorY + window.scrollY : cursorY
+
+		// Batch-read live rects only when not caching (avoids layout thrash)
+		const rects = cachePositions ? null : charSpans.map(({ span }) => span.getBoundingClientRect())
 
 		charSpans.forEach(({ span, riskLevel }, i) => {
 			// Clear any outgoing transition so live tracking is not delayed
 			span.style.transition = ''
-			const rect = rects[i]
-			const cx = rect.left + rect.width / 2
-			const cy = rect.top + rect.height / 2
-			const dist = Math.sqrt((cursorX - cx) ** 2 + (cursorY - cy) ** 2)
+			let cx: number, cy: number
+			if (cachePositions) {
+				;({ cx, cy } = charPositions[i])
+			} else {
+				const r = rects![i]
+				cx = r.left + r.width / 2
+				cy = r.top + r.height / 2
+			}
 
-			// Normalise: strength=1 at dist=0, strength=0 at dist>=radius
+			const dist = Math.sqrt((pageCursorX - cx) ** 2 + (pageCursorY - cy) ** 2)
 			const normalised = Math.max(0, 1 - dist / radius)
 			const strength = falloff === 'quadratic' ? normalised * normalised : normalised
 
@@ -308,6 +341,7 @@ export function applyMagnetType(
 		active = false
 		cancelAnimationFrame(rafId)
 		if (transitionTimer !== null) clearTimeout(transitionTimer)
+		if (ro) ro.disconnect()
 		eventTarget.removeEventListener('mousemove', onMouseMove as EventListener)
 		eventTarget.removeEventListener('mouseleave', onMouseLeave as EventListener)
 		eventTarget.removeEventListener('touchmove', onTouchMove as EventListener)
@@ -353,6 +387,8 @@ export function startMagnetType(
 	const scope = options.scope ?? DEFAULTS.scope
 	const props = options.props
 	const transitionMs = options.transitionMs ?? 0
+	const cachePositions = options.cachePositions ?? true
+	const stabilizeLayout = options.stabilizeLayout ?? true
 
 	// Save scroll — iOS Safari does not support overflow-anchor: none
 	const scrollY = window.scrollY
@@ -409,11 +445,68 @@ export function startMagnetType(
 		Object.fromEntries(Object.entries(axes).map(([tag, [rest]]) => [tag, rest])),
 	)
 
+	// --- stabilizeLayout: measure text width delta at peak vs rest weight ---
+	// Done synchronously before first paint of the interaction. Temporarily sets
+	// white-space: nowrap to get unconstrained text width for accurate delta measurement.
+	let perCharDelta = 0
+	if (stabilizeLayout) {
+		const peakFVS = overrideAxes(
+			baseFVS,
+			Object.fromEntries(Object.entries(axes).map(([tag, [, peak]]) => [tag, peak])),
+		)
+		const savedFVS = element.style.fontVariationSettings
+		const savedWS = element.style.whiteSpace
+		const savedOF = element.style.overflow
+
+		element.style.whiteSpace = 'nowrap'
+		element.style.overflow = 'visible'
+
+		element.style.fontVariationSettings = peakFVS
+		const widthAtPeak = element.scrollWidth
+
+		element.style.fontVariationSettings = restFVS
+		const widthAtRest = element.scrollWidth
+
+		element.style.fontVariationSettings = savedFVS
+		element.style.whiteSpace = savedWS
+		element.style.overflow = savedOF
+
+		const nonSpaceCount = wordSpans.reduce(
+			(n, s) => n + (s.textContent?.replace(/\s+/g, '').length ?? 0), 0
+		)
+		if (nonSpaceCount > 0 && widthAtPeak > widthAtRest) {
+			perCharDelta = (widthAtPeak - widthAtRest) / nonSpaceCount
+		}
+	}
+
 	// Apply restValues and initial props immediately (before any cursor interaction)
 	wordSpans.forEach((span) => {
 		span.style.fontVariationSettings = restFVS
 		if (props) resetProps(span, props)
 	})
+
+	// --- Position cache (page-relative word centres, avoids per-frame getBoundingClientRect) ---
+	type WordPos = { cx: number; cy: number }
+	let wordPositions: WordPos[] = []
+	let cacheValid = false
+
+	function buildWordCache() {
+		const sx = window.scrollX
+		const sy = window.scrollY
+		wordPositions = wordSpans.map((span) => {
+			const r = span.getBoundingClientRect()
+			return { cx: (r.left + r.right) / 2 + sx, cy: (r.top + r.bottom) / 2 + sy }
+		})
+		cacheValid = true
+	}
+
+	let ro: ResizeObserver | null = null
+	if (cachePositions) {
+		buildWordCache()
+		ro = new ResizeObserver(() => { cacheValid = false })
+		ro.observe(element)
+		document.fonts?.ready?.then(() => { cacheValid = false })
+	}
 
 	// --- rAF loop state ---
 	let cursorX = -9999
@@ -435,6 +528,7 @@ export function startMagnetType(
 					span.style.transition = `font-variation-settings ${transitionMs}ms ease`
 				}
 				span.style.fontVariationSettings = restFVS
+				if (stabilizeLayout) span.style.letterSpacing = ''
 				if (props) resetProps(span, props)
 			})
 			if (transitionMs > 0) {
@@ -448,22 +542,29 @@ export function startMagnetType(
 			return
 		}
 
-		// Batch-read word span centers, then write fontVariationSettings
-		const rects = wordSpans.map((span) => span.getBoundingClientRect())
+		// Resolve cursor and word centres in a common coordinate space
+		if (cachePositions && !cacheValid) buildWordCache()
+		const pageCursorX = cachePositions ? cursorX + window.scrollX : cursorX
+		const pageCursorY = cachePositions ? cursorY + window.scrollY : cursorY
+
+		// Batch-read live rects only when not caching (avoids layout thrash)
+		const rects = cachePositions ? null : wordSpans.map((span) => span.getBoundingClientRect())
 
 		wordSpans.forEach((span, i) => {
 			// Clear any outgoing transition so live tracking is not delayed
 			span.style.transition = ''
-			const rect = rects[i]
-			const cx = rect.left + rect.width / 2
-			const cy = rect.top + rect.height / 2
-			const dist = Math.sqrt((cursorX - cx) ** 2 + (cursorY - cy) ** 2)
+			let cx: number, cy: number
+			if (cachePositions) {
+				;({ cx, cy } = wordPositions[i])
+			} else {
+				const r = rects![i]
+				cx = r.left + r.width / 2
+				cy = r.top + r.height / 2
+			}
 
-			// Normalise: strength=1 at dist=0, strength=0 at dist>=radius
+			const dist = Math.sqrt((pageCursorX - cx) ** 2 + (pageCursorY - cy) ** 2)
 			const normalised = Math.max(0, 1 - dist / radius)
 			const strength = falloff === 'quadratic' ? normalised * normalised : normalised
-
-			// t accounts for attract vs repel polarity
 			const t = magnetMode === 'repel' ? 1 - strength : strength
 
 			const perAxisValues: Record<string, number> = {}
@@ -473,6 +574,12 @@ export function startMagnetType(
 			}
 
 			span.style.fontVariationSettings = overrideAxes(baseFVS, perAxisValues)
+
+			// Compensate for the advance-width increase by tightening letter-spacing proportionally
+			if (stabilizeLayout && perCharDelta !== 0) {
+				span.style.letterSpacing = `${(-perCharDelta * t).toFixed(3)}px`
+			}
+
 			if (props) applyProps(span, props, strength)
 		})
 
@@ -514,6 +621,7 @@ export function startMagnetType(
 		active = false
 		cancelAnimationFrame(rafId)
 		if (transitionTimer !== null) clearTimeout(transitionTimer)
+		if (ro) ro.disconnect()
 		eventTarget.removeEventListener('mousemove', onMouseMove as EventListener)
 		eventTarget.removeEventListener('mouseleave', onMouseLeave as EventListener)
 		eventTarget.removeEventListener('touchmove', onTouchMove as EventListener)

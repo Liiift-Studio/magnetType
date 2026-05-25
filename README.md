@@ -86,6 +86,9 @@ import { MagnetBlock } from '@liiift-studio/magnettype'
 | `spreadRadius` | — | Pixel distance from the cursor within which each **character's** weight rises to `maxWeight`. When omitted, per-character splitting is skipped |
 | `proximityRadius` | — | Pixel distance from the element **edge** that gates the effect. Without `spreadRadius`, drives a whole-element weight ramp. With `spreadRadius`, acts as an outer gate — the spread only fires while the cursor is within this distance |
 | `fixedAxes` | `{}` | Additional axis values to hold constant in every `font-variation-settings` string (e.g. `{ opsz: 144 }`) |
+| `stabilizeLayout` | `true` | Apply compensating letter-spacing to prevent text reflow as weight rises. Measures the element's width at rest and peak weight via an off-screen probe and applies proportional negative letter-spacing per character. Disable if you want natural bold spacing, or if your font expands glyphs very unevenly (compensation is a per-element average) |
+| `cachePositions` | `true` | Cache character centre positions in page-relative coordinates, eliminating `getBoundingClientRect` calls on every `mousemove`. Rebuilt on resize and after fonts load. Disable if the element is inside a custom scroll container (`overflow: scroll` on a non-window element) |
+| `rafThrottle` | `true` | Throttle proximity updates to one per animation frame (≈ 60 fps on most displays). Disable for lowest input latency on 120 Hz displays or very fast-moving effects |
 | `className` | — | Forwarded to the root element |
 | `style` | — | Merged with the root element's style; `fontVariationSettings` at `minWeight` is set as the base |
 
@@ -244,4 +247,4 @@ The package itself has zero runtime dependencies. Do not remove this entry.
 
 ---
 
-Current version: 1.1.3
+Current version: 1.1.5

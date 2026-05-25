@@ -32,6 +32,18 @@ export interface MagnetBlockProps {
 	 * @default true
 	 */
 	rafThrottle?: boolean
+	/**
+	 * Apply compensating letter-spacing to keep line lengths stable as font weight changes.
+	 * Measures the element's text width at rest and peak weight via an off-screen probe span,
+	 * then applies proportional negative letter-spacing per character as weight rises,
+	 * cancelling the advance-width increase that would otherwise cause text to reflow.
+	 *
+	 * Disable if you prefer natural bold letter-spacing, or if the font expands characters
+	 * very unevenly across the weight axis (the compensation is a per-element average and
+	 * may not perfectly cancel highly variable per-character expansion).
+	 * @default true
+	 */
+	stabilizeLayout?: boolean
 }
 
 type CharPos = { cx: number; cy: number }
@@ -51,6 +63,7 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 			fixedAxes = {},
 			cachePositions = true,
 			rafThrottle = true,
+			stabilizeLayout = true,
 		},
 		forwardedRef,
 	) {
@@ -65,6 +78,9 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 
 		// rAF handle — one pending frame at a time
 		const rafIdRef = useRef<number | null>(null)
+
+		// Per-character advance-width delta between minWeight and maxWeight (px)
+		const perCharDeltaRef = useRef(0)
 
 		const mergedRef = useCallback(
 			(node: HTMLElement | null) => {
@@ -142,7 +158,11 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 				// proximityRadius gate
 				if (proximityRadius !== undefined && distToEdge > proximityRadius) {
 					el.style.fontVariationSettings = buildVS(minWeight)
-					for (const span of charSpansRef.current) if (span) span.style.fontVariationSettings = buildVS(minWeight)
+					for (const span of charSpansRef.current) {
+						if (!span) continue
+						span.style.fontVariationSettings = buildVS(minWeight)
+						if (stabilizeLayout) span.style.letterSpacing = ''
+					}
 					return
 				}
 
@@ -150,7 +170,11 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 				// the element edge, every character is guaranteed to be out of range too —
 				// skip all per-character work.
 				if (distToEdge > spreadRadius) {
-					for (const span of charSpansRef.current) if (span) span.style.fontVariationSettings = buildVS(minWeight)
+					for (const span of charSpansRef.current) {
+						if (!span) continue
+						span.style.fontVariationSettings = buildVS(minWeight)
+						if (stabilizeLayout) span.style.letterSpacing = ''
+					}
 					return
 				}
 
@@ -165,6 +189,9 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 						const proximity = Math.max(0, 1 - dist / spreadRadius)
 						const eased = 1 - (1 - proximity) ** 2
 						span.style.fontVariationSettings = buildVS(minWeight + (maxWeight - minWeight) * eased)
+						if (stabilizeLayout && perCharDeltaRef.current !== 0) {
+							span.style.letterSpacing = `${(-perCharDeltaRef.current * eased).toFixed(3)}px`
+						}
 					}
 				} else {
 					// Fallback: live getBoundingClientRect per span (cachePositions=false or cache length mismatch)
@@ -177,6 +204,9 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 						const proximity = Math.max(0, 1 - dist / spreadRadius)
 						const eased = 1 - (1 - proximity) ** 2
 						span.style.fontVariationSettings = buildVS(minWeight + (maxWeight - minWeight) * eased)
+						if (stabilizeLayout && perCharDeltaRef.current !== 0) {
+							span.style.letterSpacing = `${(-perCharDeltaRef.current * eased).toFixed(3)}px`
+						}
 					}
 				}
 			}
@@ -198,7 +228,7 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 				}
 			},
 			// eslint-disable-next-line react-hooks/exhaustive-deps
-			[minWeight, maxWeight, proximityRadius, spreadRadius, cachePositions, rafThrottle, JSON.stringify(fixedAxes)],
+			[minWeight, maxWeight, proximityRadius, spreadRadius, cachePositions, rafThrottle, stabilizeLayout, JSON.stringify(fixedAxes)],
 		)
 
 		const handleScroll = useCallback(
@@ -206,7 +236,7 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 				if (lastPos.current) applyProximity(lastPos.current.x, lastPos.current.y)
 			},
 			// eslint-disable-next-line react-hooks/exhaustive-deps
-			[minWeight, maxWeight, proximityRadius, spreadRadius, cachePositions, JSON.stringify(fixedAxes)],
+			[minWeight, maxWeight, proximityRadius, spreadRadius, cachePositions, stabilizeLayout, JSON.stringify(fixedAxes)],
 		)
 
 		const handleMouseLeave = useCallback(
@@ -218,10 +248,14 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 				}
 				const el = innerRef.current
 				if (el) el.style.fontVariationSettings = buildVS(minWeight)
-				for (const span of charSpansRef.current) if (span) span.style.fontVariationSettings = buildVS(minWeight)
+				for (const span of charSpansRef.current) {
+					if (!span) continue
+					span.style.fontVariationSettings = buildVS(minWeight)
+					if (stabilizeLayout) span.style.letterSpacing = ''
+				}
 			},
 			// eslint-disable-next-line react-hooks/exhaustive-deps
-			[minWeight, JSON.stringify(fixedAxes)],
+			[minWeight, stabilizeLayout, JSON.stringify(fixedAxes)],
 		)
 
 		useEffect(() => {
@@ -247,7 +281,7 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 			if (!el) return
 			const ro = new ResizeObserver(() => { cacheValidRef.current = false })
 			ro.observe(el)
-			document.fonts.ready.then(() => { cacheValidRef.current = false })
+			document.fonts?.ready?.then(() => { cacheValidRef.current = false })
 			return () => ro.disconnect()
 		}, [cachePositions, spreadRadius])
 
@@ -255,6 +289,42 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 		useEffect(() => {
 			cacheValidRef.current = false
 		}, [children, spreadRadius])
+
+		// Measure per-character advance-width delta for layout stabilization.
+		// Uses an off-screen probe span so character spans' inline FVS don't interfere.
+		useEffect(() => {
+			if (!stabilizeLayout || !spreadRadius) {
+				perCharDeltaRef.current = 0
+				return
+			}
+			const el = innerRef.current
+			if (!el) return
+			const rawText = el.textContent ?? ''
+			const nonSpaceCount = rawText.replace(/\s/g, '').length
+			if (nonSpaceCount === 0) return
+			const cs = getComputedStyle(el)
+			const probe = document.createElement('span')
+			probe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;visibility:hidden;white-space:nowrap;pointer-events:none;'
+			probe.style.fontFamily = cs.fontFamily
+			probe.style.fontSize = cs.fontSize
+			probe.style.fontWeight = cs.fontWeight
+			probe.style.lineHeight = cs.lineHeight
+			probe.style.letterSpacing = cs.letterSpacing
+			probe.textContent = rawText
+			document.body.appendChild(probe)
+			const buildFVS = (w: number) => {
+				const parts = [`'wght' ${w.toFixed(0)}`]
+				for (const [tag, val] of Object.entries(fixedAxes)) parts.push(`'${tag}' ${val}`)
+				return parts.join(', ')
+			}
+			probe.style.fontVariationSettings = buildFVS(maxWeight)
+			const wMax = probe.scrollWidth
+			probe.style.fontVariationSettings = buildFVS(minWeight)
+			const wMin = probe.scrollWidth
+			document.body.removeChild(probe)
+			perCharDeltaRef.current = wMax > wMin ? (wMax - wMin) / nonSpaceCount : 0
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		}, [stabilizeLayout, spreadRadius, minWeight, maxWeight, children, JSON.stringify(fixedAxes)])
 
 		const processedChildren = useMemo(() => {
 			if (!spreadRadius) return children

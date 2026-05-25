@@ -67,7 +67,7 @@ export function useMagnetType(options: MagnetTypeOptions) {
 
 	// Re-run after fonts load — ensures measurements are taken on the loaded font
 	useEffect(() => {
-		document.fonts.ready.then(run)
+		document.fonts?.ready?.then(run)
 	}, [run])
 
 	return ref
