@@ -72,17 +72,15 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 
 			for (const textNode of textNodes) {
 				const text = textNode.textContent ?? ''
-				if (!/\S/.test(text)) continue
-				const parts = text.split(/(\s+)/)
+				if (!text) continue
 				const fragment = document.createDocumentFragment()
-				for (const part of parts) {
-					if (part === '') continue
-					if (/^\s+$/.test(part)) {
-						fragment.appendChild(document.createTextNode(part))
+				for (const char of text) {
+					if (/\s/.test(char)) {
+						fragment.appendChild(document.createTextNode(char))
 					} else {
 						const span = document.createElement('span')
 						span.style.fontVariationSettings = buildVS(minWeight)
-						span.textContent = part
+						span.textContent = char
 						spans.push(span)
 						fragment.appendChild(span)
 					}
