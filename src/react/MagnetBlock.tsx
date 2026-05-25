@@ -1,7 +1,7 @@
-// magnetType/src/react/MagnetBlock.tsx — element-level or per-word cursor-proximity weight variation
+// magnetType/src/react/MagnetBlock.tsx — element-level or per-character cursor-proximity weight variation
 'use client'
 
-import { useRef, useCallback, useEffect, forwardRef } from 'react'
+import React, { useRef, useCallback, useEffect, forwardRef, useMemo } from 'react'
 
 export interface MagnetBlockProps {
 	children: React.ReactNode
@@ -13,15 +13,16 @@ export interface MagnetBlockProps {
 	maxWeight?: number
 	/** Pixel distance from the element edge within which the whole-element effect activates */
 	proximityRadius?: number
-	/** Pixel distance from the cursor within which each word's weight rises to max */
+	/** Pixel distance from the cursor within which each character's weight rises to max */
 	spreadRadius?: number
 	fixedAxes?: Record<string, number>
 }
 
 /**
  * Drop-in block element with cursor-proximity variable font weight variation.
- * Accepts any ReactNode — use spreadRadius for per-word spread, proximityRadius
- * for a whole-element proximity gate, or combine both.
+ * Accepts any ReactNode. When spreadRadius is set, string children are split into
+ * per-character spans rendered as React elements — no DOM manipulation required.
+ * Use proximityRadius for a whole-element gate, or combine both.
  */
 export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 	function MagnetBlock(
@@ -40,7 +41,7 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 	) {
 		const innerRef = useRef<HTMLElement>(null)
 		const lastPos = useRef<{ x: number; y: number } | null>(null)
-		const wordSpansRef = useRef<HTMLSpanElement[]>([])
+		const charSpansRef = useRef<(HTMLSpanElement | null)[]>([])
 
 		const mergedRef = useCallback(
 			(node: HTMLElement | null) => {
@@ -58,38 +59,44 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 			return parts.join(', ')
 		}
 
-		// Post-mount: walk text nodes and wrap each word in a span for per-word proximity
-		useEffect(() => {
-			if (!spreadRadius) return
-			const el = innerRef.current
-			if (!el) return
+		// Split ReactNode tree into per-character spans for string segments.
+		// Non-string React elements are passed through unchanged.
+		const processedChildren = useMemo(() => {
+			if (!spreadRadius) return children
 
-			const spans: HTMLSpanElement[] = []
-			const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
-			const textNodes: Text[] = []
-			let node: Node | null
-			while ((node = walker.nextNode())) textNodes.push(node as Text)
+			charSpansRef.current = []
+			let idx = 0
 
-			for (const textNode of textNodes) {
-				const text = textNode.textContent ?? ''
-				if (!text) continue
-				const fragment = document.createDocumentFragment()
-				for (const char of text) {
-					if (/\s/.test(char)) {
-						fragment.appendChild(document.createTextNode(char))
-					} else {
-						const span = document.createElement('span')
-						span.style.fontVariationSettings = buildVS(minWeight)
-						span.textContent = char
-						spans.push(span)
-						fragment.appendChild(span)
+			function processNode(node: React.ReactNode): React.ReactNode {
+				if (typeof node === 'string') {
+					return [...node].map(char => {
+						if (/\s/.test(char)) return char
+						const i = idx++
+						return (
+							<span
+								key={i}
+								ref={el => { charSpansRef.current[i] = el }}
+								style={{ fontVariationSettings: buildVS(minWeight) }}
+							>
+								{char}
+							</span>
+						)
+					})
+				}
+				if (Array.isArray(node)) return node.map((n, i) => <React.Fragment key={i}>{processNode(n)}</React.Fragment>)
+				if (React.isValidElement(node)) {
+					// Recurse into React element children to split their text too
+					const el = node as React.ReactElement<{ children?: React.ReactNode }>
+					if (el.props.children !== undefined) {
+						return React.cloneElement(el, {}, processNode(el.props.children))
 					}
 				}
-				textNode.parentNode?.replaceChild(fragment, textNode)
+				return node
 			}
-			wordSpansRef.current = spans
+
+			return processNode(children)
 			// eslint-disable-next-line react-hooks/exhaustive-deps
-		}, [])
+		}, [children, spreadRadius, minWeight, JSON.stringify(fixedAxes)])
 
 		function applyProximity(clientX: number, clientY: number) {
 			const el = innerRef.current
@@ -100,7 +107,7 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 			const dy = Math.max(rect.top - clientY, 0, clientY - rect.bottom)
 			const distToEdge = Math.sqrt(dx * dx + dy * dy)
 
-			// Whole-element effect (no per-word spread)
+			// Whole-element effect only
 			if (proximityRadius !== undefined && !spreadRadius) {
 				const proximity = Math.max(0, 1 - distToEdge / proximityRadius)
 				const eased = 1 - (1 - proximity) ** 2
@@ -108,14 +115,15 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 				return
 			}
 
-			// Per-word spread, with optional proximity gate
+			// Per-character spread with optional proximity gate
 			if (spreadRadius) {
 				if (proximityRadius !== undefined && distToEdge > proximityRadius) {
 					el.style.fontVariationSettings = buildVS(minWeight)
-					for (const span of wordSpansRef.current) span.style.fontVariationSettings = buildVS(minWeight)
+					for (const span of charSpansRef.current) if (span) span.style.fontVariationSettings = buildVS(minWeight)
 					return
 				}
-				for (const span of wordSpansRef.current) {
+				for (const span of charSpansRef.current) {
+					if (!span) continue
 					const sr = span.getBoundingClientRect()
 					const cx = (sr.left + sr.right) / 2
 					const cy = (sr.top + sr.bottom) / 2
@@ -149,7 +157,7 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 				lastPos.current = null
 				const el = innerRef.current
 				if (el) el.style.fontVariationSettings = buildVS(minWeight)
-				for (const span of wordSpansRef.current) span.style.fontVariationSettings = buildVS(minWeight)
+				for (const span of charSpansRef.current) if (span) span.style.fontVariationSettings = buildVS(minWeight)
 				// eslint-disable-next-line react-hooks/exhaustive-deps
 			},
 			[minWeight],
@@ -172,7 +180,7 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 				className={className}
 				style={{ fontVariationSettings: buildVS(minWeight), ...style }}
 			>
-				{children}
+				{processedChildren}
 			</Tag>
 		)
 	},
