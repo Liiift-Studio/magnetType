@@ -27,14 +27,15 @@ function GyroIcon() {
 	)
 }
 
-/** Slider sub-component with label, value display, and aria-label */
-function Slider({ label, value, min, max, step, onChange }: {
+/** Slider sub-component with label, value display, aria-label, and optional tooltip */
+function Slider({ label, value, min, max, step, onChange, title }: {
 	label: string
 	value: number
 	min: number
 	max: number
 	step: number
 	onChange: (v: number) => void
+	title?: string
 }) {
 	return (
 		<div className="flex flex-col gap-1">
@@ -46,6 +47,7 @@ function Slider({ label, value, min, max, step, onChange }: {
 				step={step}
 				value={value}
 				aria-label={label}
+				title={title}
 				onChange={e => onChange(Number(e.target.value))}
 				onTouchStart={e => e.stopPropagation()}
 				style={{ touchAction: 'none' }}
@@ -56,11 +58,13 @@ function Slider({ label, value, min, max, step, onChange }: {
 }
 
 /** Toggle button row — highlights the active option */
-function ToggleGroup<T extends string>({ label, options, value, onChange }: {
+function ToggleGroup<T extends string>({ label, options, value, onChange, titles }: {
 	label: string
 	options: readonly T[]
 	value: T
 	onChange: (v: T) => void
+	/** Optional tooltip for each option, keyed by option value */
+	titles?: Partial<Record<T, string>>
 }) {
 	return (
 		<>
@@ -70,6 +74,7 @@ function ToggleGroup<T extends string>({ label, options, value, onChange }: {
 					key={v}
 					onClick={() => onChange(v)}
 					aria-pressed={value === v}
+					title={titles?.[v]}
 					className="text-xs px-3 py-1 rounded-full border transition-opacity"
 					style={{
 						borderColor: 'currentColor',
@@ -219,6 +224,11 @@ export default function Demo() {
 					options={['char', 'word', 'legibility'] as const}
 					value={mode}
 					onChange={setMode}
+					titles={{
+						char: "Per-character mode: each individual letter's weight tracks proximity to the cursor",
+						word: "Per-word mode: each word's weight shifts as the cursor enters its magnetic radius",
+						legibility: "Legibility mode: expands the width axis on visually confusable characters (il1I, rn, 0O) near the cursor",
+					}}
 				/>
 			</div>
 
@@ -226,9 +236,9 @@ export default function Demo() {
 			{mode === 'word' && (
 				<>
 					<div className="grid grid-cols-2 sm:grid-cols-3 gap-6 mb-6">
-						<Slider label="Weight High" value={weightHigh} min={100} max={900} step={10} onChange={setWeightHigh} />
-						<Slider label="Weight Low"  value={weightLow}  min={100} max={900} step={10} onChange={setWeightLow}  />
-						<Slider label="Radius"      value={radius}     min={60}  max={240} step={10} onChange={setRadius}     />
+						<Slider label="Weight High" value={weightHigh} min={100} max={900} step={10} onChange={setWeightHigh} title="Maximum font weight applied to a word when it sits at the centre of the magnetic field — the value the cursor attracts toward" />
+						<Slider label="Weight Low"  value={weightLow}  min={100} max={900} step={10} onChange={setWeightLow}  title="Resting font weight for words outside the magnetic radius — the baseline weight the effect falls back to" />
+						<Slider label="Radius"      value={radius}     min={60}  max={240} step={10} onChange={setRadius}     title="Distance in pixels from the cursor at which words begin to feel the magnetic pull — larger values create a broader, softer field" />
 					</div>
 					<div className="flex flex-wrap items-center gap-3 mb-4">
 						<ToggleGroup
@@ -236,18 +246,26 @@ export default function Demo() {
 							options={['linear', 'quadratic'] as const}
 							value={falloff}
 							onChange={setFalloff}
+							titles={{
+								linear: "Weight decreases at a constant rate as distance from the cursor grows",
+								quadratic: "Weight drops off faster near the edge of the radius, giving a sharper, more focused effect",
+							}}
 						/>
 						<ToggleGroup
 							label="Magnet"
 							options={['attract', 'repel'] as const}
 							value={magnetMode}
 							onChange={setMagnetMode}
+							titles={{
+								attract: "Words near the cursor pull toward the high weight — the cursor acts as a weight magnet",
+								repel: "Words near the cursor push toward the low weight — proximity lightens rather than bolds",
+							}}
 						/>
 					</div>
 					<div className="flex flex-wrap items-center gap-3 mb-8">
 						<span className="text-xs uppercase tracking-widest opacity-50">Props</span>
-						<ToggleButton label="opacity" value={opacityProp} onChange={setOpacityProp} />
-						<ToggleButton label="italic" value={italicProp} onChange={setItalicProp} />
+						<ToggleButton label="opacity" value={opacityProp} onChange={setOpacityProp} title="Also fade word opacity in proportion to cursor proximity — near words appear at full opacity, distant words fade" />
+						<ToggleButton label="italic" value={italicProp} onChange={setItalicProp} title="Italicise words as they enter the magnetic field, reverting to upright as they leave" />
 						{showGyro && (
 							<ToggleButton
 								label={gyroMode ? "Gaze active" : "gyro"}
@@ -309,9 +327,9 @@ export default function Demo() {
 			{mode === 'char' && (
 				<>
 					<div className="grid grid-cols-2 sm:grid-cols-3 gap-6 mb-8">
-						<Slider label="Spread Radius" value={blockSpreadRadius} min={20} max={300} step={10} onChange={setBlockSpreadRadius} />
-						<Slider label="Weight High"   value={blockWeightHigh}   min={100} max={900} step={10} onChange={setBlockWeightHigh}   />
-						<Slider label="Weight Low"    value={blockWeightLow}    min={100} max={900} step={10} onChange={setBlockWeightLow}    />
+						<Slider label="Spread Radius" value={blockSpreadRadius} min={20} max={300} step={10} onChange={setBlockSpreadRadius} title="How far in pixels from the cursor individual characters feel the weight gradient — smaller values keep the effect tightly focused, larger values spread it across more of the line" />
+						<Slider label="Weight High"   value={blockWeightHigh}   min={100} max={900} step={10} onChange={setBlockWeightHigh}   title="Maximum font weight applied to characters directly under the cursor" />
+						<Slider label="Weight Low"    value={blockWeightLow}    min={100} max={900} step={10} onChange={setBlockWeightLow}    title="Resting font weight for characters beyond the spread radius — the weight the text returns to when the cursor moves away" />
 					</div>
 					<p className="text-xs opacity-50 mb-6" style={{ lineHeight: "1.6" }}>
 						Character mode — per-character weight gradient across any block element. Works with mixed content (inline code, links, etc). Move your cursor through the paragraphs below.
