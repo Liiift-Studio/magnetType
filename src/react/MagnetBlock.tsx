@@ -292,37 +292,44 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 
 		// Measure per-character advance-width delta for layout stabilization.
 		// Uses an off-screen probe span so character spans' inline FVS don't interfere.
+		// Re-runs after fonts load to ensure the variable font is active during measurement.
 		useEffect(() => {
 			if (!stabilizeLayout || !spreadRadius) {
 				perCharDeltaRef.current = 0
 				return
 			}
-			const el = innerRef.current
-			if (!el) return
-			const rawText = el.textContent ?? ''
-			const nonSpaceCount = rawText.replace(/\s/g, '').length
-			if (nonSpaceCount === 0) return
-			const cs = getComputedStyle(el)
-			const probe = document.createElement('span')
-			probe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;visibility:hidden;white-space:nowrap;pointer-events:none;'
-			probe.style.fontFamily = cs.fontFamily
-			probe.style.fontSize = cs.fontSize
-			probe.style.fontWeight = cs.fontWeight
-			probe.style.lineHeight = cs.lineHeight
-			probe.style.letterSpacing = cs.letterSpacing
-			probe.textContent = rawText
-			document.body.appendChild(probe)
-			const buildFVS = (w: number) => {
-				const parts = [`'wght' ${w.toFixed(0)}`]
-				for (const [tag, val] of Object.entries(fixedAxes)) parts.push(`'${tag}' ${val}`)
-				return parts.join(', ')
+
+			function measure() {
+				const el = innerRef.current
+				if (!el) return
+				const rawText = el.textContent ?? ''
+				const nonSpaceCount = rawText.replace(/\s/g, '').length
+				if (nonSpaceCount === 0) return
+				const cs = getComputedStyle(el)
+				const probe = document.createElement('span')
+				probe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;visibility:hidden;white-space:nowrap;pointer-events:none;'
+				probe.style.fontFamily = cs.fontFamily
+				probe.style.fontSize = cs.fontSize
+				probe.style.fontWeight = cs.fontWeight
+				probe.style.lineHeight = cs.lineHeight
+				probe.style.letterSpacing = cs.letterSpacing
+				probe.textContent = rawText
+				document.body.appendChild(probe)
+				const buildFVS = (w: number) => {
+					const parts = [`'wght' ${w.toFixed(0)}`]
+					for (const [tag, val] of Object.entries(fixedAxes)) parts.push(`'${tag}' ${val}`)
+					return parts.join(', ')
+				}
+				probe.style.fontVariationSettings = buildFVS(maxWeight)
+				const wMax = probe.scrollWidth
+				probe.style.fontVariationSettings = buildFVS(minWeight)
+				const wMin = probe.scrollWidth
+				document.body.removeChild(probe)
+				perCharDeltaRef.current = wMax > wMin ? (wMax - wMin) / nonSpaceCount : 0
 			}
-			probe.style.fontVariationSettings = buildFVS(maxWeight)
-			const wMax = probe.scrollWidth
-			probe.style.fontVariationSettings = buildFVS(minWeight)
-			const wMin = probe.scrollWidth
-			document.body.removeChild(probe)
-			perCharDeltaRef.current = wMax > wMin ? (wMax - wMin) / nonSpaceCount : 0
+
+			measure()
+			document.fonts?.ready?.then(measure)
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 		}, [stabilizeLayout, spreadRadius, minWeight, maxWeight, children, JSON.stringify(fixedAxes)])
 
