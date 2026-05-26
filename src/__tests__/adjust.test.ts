@@ -409,6 +409,52 @@ describe('magnetType', () => {
 		rafSpy.mockRestore()
 	})
 
+	// ── prefers-reduced-motion and SSR guards ───────────────────────────────────
+
+	it('startMagnetType: prefers-reduced-motion restores originalHTML and returns noop stop', () => {
+		vi.spyOn(window, 'matchMedia').mockReturnValue({
+			matches: true, media: '', onchange: null, addListener: () => {}, removeListener: () => {},
+			addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => true,
+		} as MediaQueryList)
+		const el = makeElement('Hello world')
+		const original = getCleanHTML(el)
+		const stop = startMagnetType(el, original, { mode: 'field' })
+		expect(el.innerHTML).toBe(original)
+		expect(el.querySelectorAll(`.${MAGNET_TYPE_CLASSES.word}`).length).toBe(0)
+		expect(typeof stop).toBe('function')
+		expect(() => stop()).not.toThrow()
+		vi.restoreAllMocks()
+	})
+
+	it('applyMagnetType: prefers-reduced-motion restores originalHTML and returns noop stop', () => {
+		vi.spyOn(window, 'matchMedia').mockReturnValue({
+			matches: true, media: '', onchange: null, addListener: () => {}, removeListener: () => {},
+			addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => true,
+		} as MediaQueryList)
+		const el = makeElement('il1I fish')
+		const original = getCleanHTML(el)
+		const stop = applyMagnetType(el, original, { mode: 'legibility', wdthBoost: 6 })
+		expect(el.innerHTML).toBe(original)
+		expect(el.querySelectorAll(`.${MAGNET_TYPE_CLASSES.char}`).length).toBe(0)
+		expect(typeof stop).toBe('function')
+		expect(() => stop()).not.toThrow()
+		vi.restoreAllMocks()
+	})
+
+	it('startMagnetType: SSR guard does not throw when window is undefined', () => {
+		const el = makeElement('Hello world')
+		const original = getCleanHTML(el)
+		const win = (globalThis as Record<string, unknown>).window
+		delete (globalThis as Record<string, unknown>).window
+		try {
+			let stop: (() => void) | undefined
+			expect(() => { stop = startMagnetType(el, original, {}) }).not.toThrow()
+			expect(typeof stop).toBe('function')
+		} finally {
+			;(globalThis as Record<string, unknown>).window = win
+		}
+	})
+
 	it('applyMagnetType applies opacity prop on cursor proximity', () => {
 		let pendingRaf: FrameRequestCallback | null = null
 		const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {

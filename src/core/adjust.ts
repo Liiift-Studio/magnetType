@@ -139,7 +139,7 @@ export function applyMagnetType(
 	if (typeof window === 'undefined') return () => {}
 
 	// Check prefers-reduced-motion — skip interaction entirely if requested
-	if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+	if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
 		element.innerHTML = originalHTML
 		return () => {}
 	}
@@ -375,7 +375,7 @@ export function startMagnetType(
 	if (typeof window === 'undefined') return () => {}
 
 	// Check prefers-reduced-motion — skip animation entirely if requested
-	if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+	if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
 		element.innerHTML = originalHTML
 		return () => {}
 	}
