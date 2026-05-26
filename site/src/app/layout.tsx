@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 export const metadata: Metadata = {
 	title: "Magnet Type — Cursor-field variable font axis variation",
 	icons: { icon: "/icon.svg", shortcut: "/icon.svg", apple: "/icon.svg" },
-	description: "Magnet Type drives per-word variable font axes based on cursor proximity — words near the cursor attract toward a peak axis value, words far away hold at rest. Works with React, vanilla JS, or any framework.",
+	description: "Drive per-word variable font axes with cursor proximity. Words near the cursor attract toward a peak value; far words hold at rest. React and vanilla JS.",
 	keywords: ["magnet type", "variable font", "cursor", "mouse", "proximity", "wght", "wdth", "typography", "TypeScript", "npm", "react"],
 	openGraph: {
 		title: "Magnet Type — Cursor-field variable font axis variation",

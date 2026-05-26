@@ -187,10 +187,14 @@ const legibilityOpts: MagnetTypeOptions = {
 |--------|---------|-------------|
 | `mode` | `'word'` | `'word'` — cursor proximity drives per-word `font-variation-settings` via a continuous rAF loop. `'legibility'` — static per-character `wdth` boost on visually confusable characters |
 | `axes` | `{ wght: [300, 500] }` | *(field mode)* Map of axis tag → `[restValue, peakValue]` |
-| `radius` | `120` | *(field mode)* Pixel radius over which the field effect fades from each word's centre |
-| `falloff` | `'quadratic'` | *(field mode)* `'linear'` or `'quadratic'` falloff curve |
+| `radius` | `120` | Pixel radius over which the field effect fades from each word's centre (field mode) or each character's centre (legibility mode) |
+| `falloff` | `'quadratic'` | `'linear'` or `'quadratic'` falloff curve |
 | `magnetMode` | `'attract'` | *(field mode)* `'attract'` — near words approach `peakValue`. `'repel'` — near words stay at `restValue`, far words approach `peakValue` |
+| `scope` | `'document'` | `'document'` — cursor events listened on the document, enabling cross-element effects. `'element'` — events restricted to the target element |
+| `props` | `undefined` | Additional CSS effects driven by cursor proximity. `{ opacity: [rest, peak] }` fades words/chars; `{ italic: true }` toggles italic at strength > 0.5 |
 | `wdthBoost` | `6` | *(legibility mode)* `wdth` units added to confusable characters, scaled by risk: `il1I` (risk 3) get the full boost; `r 0 O` (risk 2) get ⅔; `n m o b d p q c e` (risk 1) get ⅓ |
+| `stabilizeLayout` | `true` | Apply compensating letter-spacing to keep line lengths stable as font weight changes. Disable for natural bold spacing |
+| `cachePositions` | `true` | Cache word/character centre positions to avoid `getBoundingClientRect` on every `mousemove`. Disable if the element is inside a custom scroll container |
 | `transitionMs` | `0` | Duration in ms for CSS transition back to rest when cursor leaves. `0` = instant snap. Cleared on the next `mousemove` so live tracking is not delayed |
 | `as` | `'p'` | HTML element to render. *(React component only)* |
 
@@ -247,4 +251,4 @@ The package itself has zero runtime dependencies. Do not remove this entry.
 
 ---
 
-Current version: 1.2.0
+Current version: 1.2.1
