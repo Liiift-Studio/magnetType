@@ -4,7 +4,7 @@ import { MAGNET_TYPE_CLASSES, CONFUSABLE, type MagnetTypeOptions, type MagnetTyp
 // ─── Resolved defaults ────────────────────────────────────────────────────────
 
 const DEFAULTS = {
-	mode: 'field' as const,
+	mode: 'word' as const,
 	axes: { wght: [300, 500] as [number, number] },
 	radius: 120,
 	falloff: 'quadratic' as const,
@@ -350,7 +350,7 @@ export function applyMagnetType(
 	}
 }
 
-// ─── startMagnetType (field mode) ────────────────────────────────────────────
+// ─── startMagnetType (word mode) ─────────────────────────────────────────────
 
 /**
  * Start the cursor-field effect on an element.

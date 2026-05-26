@@ -6,13 +6,13 @@ import type { MagnetTypeOptions } from '../core/types'
 /**
  * React hook that applies the magnetType effect to a ref'd element.
  *
- * For mode: 'field' — starts the cursor proximity rAF loop via startMagnetType.
+ * For mode: 'word' — starts the cursor proximity rAF loop via startMagnetType.
  * For mode: 'legibility' — starts the cursor-driven wdth boost via applyMagnetType.
  *
  * Both modes return a stop function on mount and restart when options change.
  * No ResizeObserver needed — the rAF loop reads live getBoundingClientRect each frame.
  *
- * Defaults to 'field' mode if mode is undefined.
+ * Defaults to 'word' mode if mode is undefined.
  */
 export function useMagnetType(options: MagnetTypeOptions) {
 	const ref = useRef<HTMLElement>(null)
@@ -21,8 +21,8 @@ export function useMagnetType(options: MagnetTypeOptions) {
 	optionsRef.current = options
 	const stopRef = useRef<(() => void) | null>(null)
 
-	// Determine which mode we're in — default to 'field'
-	const mode = options.mode ?? 'field'
+	// Determine which mode we're in — default to 'word'
+	const mode = options.mode ?? 'word'
 
 	// Destructure options that should trigger a re-run when changed
 	const { axes, radius, falloff, magnetMode, wdthBoost, scope } = options
@@ -44,9 +44,9 @@ export function useMagnetType(options: MagnetTypeOptions) {
 			stopRef.current = null
 		}
 
-		const currentMode = optionsRef.current.mode ?? 'field'
+		const currentMode = optionsRef.current.mode ?? 'word'
 
-		if (currentMode === 'field') {
+		if (currentMode === 'word') {
 			stopRef.current = startMagnetType(el, originalHTMLRef.current, optionsRef.current)
 		} else {
 			stopRef.current = applyMagnetType(el, originalHTMLRef.current, optionsRef.current)

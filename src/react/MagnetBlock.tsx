@@ -1,9 +1,9 @@
-// magnetType/src/react/MagnetBlock.tsx — element-level or per-character cursor-proximity weight variation
+// magnetType/src/react/MagnetChar.tsx — per-character cursor-proximity weight variation
 'use client'
 
 import React, { useRef, useCallback, useEffect, forwardRef, useMemo } from 'react'
 
-export interface MagnetBlockProps {
+export interface MagnetCharProps {
 	children: React.ReactNode
 	/** HTML element to render. Default: 'p' */
 	as?: React.ElementType
@@ -49,8 +49,8 @@ export interface MagnetBlockProps {
 type CharPos = { cx: number; cy: number }
 type ElemRect = { top: number; left: number; right: number; bottom: number }
 
-export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
-	function MagnetBlock(
+export const MagnetChar = forwardRef<HTMLElement, MagnetCharProps>(
+	function MagnetChar(
 		{
 			children,
 			as: Tag = 'p',
@@ -381,4 +381,9 @@ export const MagnetBlock = forwardRef<HTMLElement, MagnetBlockProps>(
 	},
 )
 
-MagnetBlock.displayName = 'MagnetBlock'
+MagnetChar.displayName = 'MagnetChar'
+
+/** @deprecated Use MagnetChar instead */
+export const MagnetBlock = MagnetChar
+/** @deprecated Use MagnetCharProps instead */
+export type MagnetBlockProps = MagnetCharProps

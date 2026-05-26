@@ -30,7 +30,7 @@ Per-word cursor-proximity weight variation driven by a continuous rAF loop.
 import { MagnetTypeText } from '@liiift-studio/magnettype'
 
 <MagnetTypeText
-  mode="field"
+  mode="word"
   axes={{ wght: [300, 700] }}
   radius={150}
   falloff="quadratic"
@@ -40,43 +40,43 @@ import { MagnetTypeText } from '@liiift-studio/magnettype'
 </MagnetTypeText>
 ```
 
-### React — block mode (`MagnetBlock`)
+### React — block mode (`MagnetChar`)
 
 Per-character cursor-proximity weight variation. Works with mixed content (inline elements, links, `<code>`, etc.) inside any block element. Characters are wrapped as React elements — no DOM mutation.
 
 ```tsx
-import { MagnetBlock } from '@liiift-studio/magnettype'
+import { MagnetChar } from '@liiift-studio/magnettype'
 
 // Per-character spread — each character responds to cursor distance
-<MagnetBlock
+<MagnetChar
   spreadRadius={200}
   minWeight={300}
   maxWeight={700}
 >
   Typography that responds to presence.
-</MagnetBlock>
+</MagnetChar>
 
 // Whole-element gate — the effect only activates when the cursor is within proximityRadius of the element edge
-<MagnetBlock
+<MagnetChar
   proximityRadius={120}
   minWeight={300}
   maxWeight={700}
 >
   Weight rises when the cursor enters.
-</MagnetBlock>
+</MagnetChar>
 
 // Both combined — proximity gates the spread effect
-<MagnetBlock
+<MagnetChar
   proximityRadius={200}
   spreadRadius={120}
   minWeight={300}
   maxWeight={700}
 >
   Only spreads when the cursor is close.
-</MagnetBlock>
+</MagnetChar>
 ```
 
-**`MagnetBlock` props:**
+**`MagnetChar` props:**
 
 | Prop | Default | Description |
 |------|---------|-------------|
@@ -97,7 +97,7 @@ import { MagnetBlock } from '@liiift-studio/magnettype'
 ```tsx
 import { useMagnetType } from '@liiift-studio/magnettype'
 
-const ref = useMagnetType({ mode: 'field', axes: { wght: [300, 700] }, radius: 150 })
+const ref = useMagnetType({ mode: 'word', axes: { wght: [300, 700] }, radius: 150 })
 return <p ref={ref}>{children}</p>
 ```
 
@@ -120,7 +120,7 @@ import { startMagnetType, removeMagnetType, getCleanHTML } from '@liiift-studio/
 
 const el = document.querySelector('p')
 const original = getCleanHTML(el)
-const opts = { mode: 'field', axes: { wght: [300, 700] }, radius: 150 }
+const opts = { mode: 'word', axes: { wght: [300, 700] }, radius: 150 }
 
 let stop
 
@@ -163,10 +163,10 @@ ro.observe(el)
 ### TypeScript
 
 ```ts
-import type { MagnetTypeOptions, FalloffType, MagnetModeType, MagnetBlockProps } from '@liiift-studio/magnettype'
+import type { MagnetTypeOptions, FalloffType, MagnetModeType, MagnetCharProps } from '@liiift-studio/magnettype'
 
 const fieldOpts: MagnetTypeOptions = {
-  mode: 'field',
+  mode: 'word',
   axes: { wght: [300, 700], wdth: [90, 110] },
   radius: 120,
   falloff: 'quadratic' as FalloffType,
@@ -185,7 +185,7 @@ const legibilityOpts: MagnetTypeOptions = {
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `mode` | `'field'` | `'field'` — cursor proximity drives per-word `font-variation-settings` via a continuous rAF loop. `'legibility'` — static per-character `wdth` boost on visually confusable characters |
+| `mode` | `'word'` | `'word'` — cursor proximity drives per-word `font-variation-settings` via a continuous rAF loop. `'legibility'` — static per-character `wdth` boost on visually confusable characters |
 | `axes` | `{ wght: [300, 500] }` | *(field mode)* Map of axis tag → `[restValue, peakValue]` |
 | `radius` | `120` | *(field mode)* Pixel radius over which the field effect fades from each word's centre |
 | `falloff` | `'quadratic'` | *(field mode)* `'linear'` or `'quadratic'` falloff curve |
@@ -209,9 +209,9 @@ strength   = normalised² (quadratic) or normalised (linear)
 
 Each word's `font-variation-settings` interpolates between `restValue` and `peakValue` at that strength. Reads are batched before writes on every frame to avoid layout thrashing. When the cursor leaves, one final frame resets all words to `restValue`.
 
-### Block mode (`MagnetBlock`)
+### Block mode (`MagnetChar`)
 
-`MagnetBlock` splits string children into per-character `<span>` elements during the React render pass using `useMemo` — no DOM mutation. Callback refs collect each span element. On `mousemove` (and on `scroll`, using the stored last position), the component reads each span's `getBoundingClientRect`, computes cursor-to-character-centre distance, and sets `font-variation-settings` directly on the span's style. This is passive and batched per frame via the event handler.
+`MagnetChar` splits string children into per-character `<span>` elements during the React render pass using `useMemo` — no DOM mutation. Callback refs collect each span element. On `mousemove` (and on `scroll`, using the stored last position), the component reads each span's `getBoundingClientRect`, computes cursor-to-character-centre distance, and sets `font-variation-settings` directly on the span's style. This is passive and batched per frame via the event handler.
 
 `proximityRadius` measures cursor distance to the element **edge** (not its centre) — useful as an outer gate so the effect only fires when the cursor is actually near the block. `spreadRadius` measures cursor distance to each **character centre** — controls how wide the weight gradient spreads around the cursor within the block. Both are independent and combinable.
 
@@ -247,4 +247,4 @@ The package itself has zero runtime dependencies. Do not remove this entry.
 
 ---
 
-Current version: 1.1.6
+Current version: 1.2.0

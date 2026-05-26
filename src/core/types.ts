@@ -19,7 +19,7 @@ export type FalloffType = 'linear' | 'quadratic'
 export type MagnetModeType = 'attract' | 'repel'
 
 /** Which mode magnetType operates in */
-export type MagnetTypeModeType = 'field' | 'legibility'
+export type MagnetTypeModeType = 'word' | 'legibility'
 
 /**
  * Scope for cursor event listeners.
@@ -55,9 +55,9 @@ export interface MagnetTypeProps {
  */
 export interface MagnetTypeOptions {
 	/**
-	 * Operating mode. Default: 'field'
+	 * Operating mode. Default: 'word'
 	 *
-	 * - **'field'** — cursor proximity drives per-word font-variation-settings.
+	 * - **'word'** — cursor proximity drives per-word font-variation-settings.
 	 * - **'legibility'** — cursor-driven wdth boost for confusable characters; both return a stop function.
 	 */
 	mode?: MagnetTypeModeType
