@@ -118,8 +118,8 @@ const CHAR_PARAGRAPHS = [
 
 /** Interactive magnetType demo — word, legibility, and character modes */
 export default function Demo() {
-	const [mode, setMode] = useState<MagnetTypeModeType | 'char'>('word')
-	const [weightHigh, setWeightHigh] = useState(600)
+	const [mode, setMode] = useState<MagnetTypeModeType | 'char'>('char')
+	const [weightHigh, setWeightHigh] = useState(900)
 	const [weightLow, setWeightLow] = useState(300)
 	const [radius, setRadius] = useState(120)
 	const [falloff, setFalloff] = useState<FalloffType>('quadratic')
@@ -127,7 +127,7 @@ export default function Demo() {
 
 	// Character mode state
 	const [blockSpreadRadius, setBlockSpreadRadius] = useState(80)
-	const [blockWeightHigh, setBlockWeightHigh] = useState(600)
+	const [blockWeightHigh, setBlockWeightHigh] = useState(900)
 	const [blockWeightLow, setBlockWeightLow] = useState(300)
 	const dBlockSpreadRadius = useDeferredValue(blockSpreadRadius)
 	const dBlockWeightHigh = useDeferredValue(blockWeightHigh)
@@ -216,7 +216,7 @@ export default function Demo() {
 			<div className="flex flex-wrap items-center gap-3 mb-6">
 				<ToggleGroup
 					label="Mode"
-					options={['word', 'legibility', 'char'] as const}
+					options={['char', 'word', 'legibility'] as const}
 					value={mode}
 					onChange={setMode}
 				/>
