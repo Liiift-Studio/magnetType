@@ -1,11 +1,11 @@
 "use client"
 
-// Interactive demo for magnetType — field mode, legibility mode, and block mode
+// Interactive demo for magnetType — word mode, legibility mode, and character mode
 import { useState, useDeferredValue, useEffect } from "react"
-import { MagnetTypeText, MagnetBlock } from "@liiift-studio/magnettype"
+import { MagnetTypeText, MagnetChar } from "@liiift-studio/magnettype"
 import type { MagnetTypeModeType, FalloffType, MagnetModeType } from "@liiift-studio/magnettype"
 
-/** Prose paragraphs for field mode demo */
+/** Prose paragraphs for word mode demo */
 const FIELD_PARAGRAPHS = [
 	`Typography has always been a conversation between the reader and the page. The characters on a printed sheet are fixed — their weight, their spacing, their axis values locked at the moment of setting. But type on screen can breathe, respond, move.`,
 	`Variable fonts make every letterform a dial. The weight axis can thicken a stroke from hairline to slab; the width axis can compress a condensed face or expand it to full measure. These were tools for the typesetter, applied once at design time. Magnet Type applies them continuously, in real time, driven by where the cursor happens to be.`,
@@ -109,23 +109,23 @@ function ToggleButton({ label, value, onChange, icon, title }: {
 	)
 }
 
-/** Prose paragraphs for block mode demo */
-const BLOCK_PARAGRAPHS = [
+/** Prose paragraphs for character mode demo */
+const CHAR_PARAGRAPHS = [
 	`Typography has always been a conversation between the reader and the page. Each word on a printed sheet is fixed — its weight locked at the moment of setting. But type on screen can breathe, respond, and shift its gravity as the cursor passes through.`,
-	`Move your cursor slowly across the paragraphs. Each word nearest the cursor rises toward its peak weight, fading back as you move away. The result is a living texture that responds to presence — not animation for its own sake, but legibility shaped by attention.`,
-	`Unlike the field effect which works character by character, block mode operates at the word level across any block element — including those with inline code, links, or other mixed content. The weight gradient follows the cursor continuously, adjusted on scroll so the effect never drifts.`,
+	`Move your cursor slowly across the paragraphs. Characters nearest the cursor rise toward their peak weight, fading back as you move away. The result is a living texture that responds to presence — not animation for its own sake, but legibility shaped by attention.`,
+	`Character mode works per-character across any block element — including mixed content with inline code, links, or other elements. The weight gradient follows the cursor continuously, adjusted on scroll so the effect never drifts.`,
 ]
 
-/** Interactive magnetType demo — field, legibility, and block modes */
+/** Interactive magnetType demo — word, legibility, and character modes */
 export default function Demo() {
-	const [mode, setMode] = useState<MagnetTypeModeType | 'block'>('field')
+	const [mode, setMode] = useState<MagnetTypeModeType | 'char'>('word')
 	const [weightHigh, setWeightHigh] = useState(600)
 	const [weightLow, setWeightLow] = useState(300)
 	const [radius, setRadius] = useState(120)
 	const [falloff, setFalloff] = useState<FalloffType>('quadratic')
 	const [magnetMode, setMagnetMode] = useState<MagnetModeType>('attract')
 
-	// Block mode state
+	// Character mode state
 	const [blockSpreadRadius, setBlockSpreadRadius] = useState(80)
 	const [blockWeightHigh, setBlockWeightHigh] = useState(600)
 	const [blockWeightLow, setBlockWeightLow] = useState(300)
@@ -133,7 +133,7 @@ export default function Demo() {
 	const dBlockWeightHigh = useDeferredValue(blockWeightHigh)
 	const dBlockWeightLow = useDeferredValue(blockWeightLow)
 
-	// Props toggles for field mode
+	// Props toggles for word mode
 	const [opacityProp, setOpacityProp] = useState(false)
 	const [italicProp, setItalicProp] = useState(false)
 
@@ -202,7 +202,7 @@ export default function Demo() {
 		fontVariationSettings: '"wght" 300, "opsz" 18, "wdth" 100',
 	}
 
-	// Build merged props object for field mode
+	// Build merged props object for word mode
 	const fieldProps = opacityProp || italicProp
 		? {
 			...(opacityProp ? { opacity: [0.5, 1.0] as [number, number] } : {}),
@@ -216,14 +216,14 @@ export default function Demo() {
 			<div className="flex flex-wrap items-center gap-3 mb-6">
 				<ToggleGroup
 					label="Mode"
-					options={['field', 'legibility', 'block'] as const}
+					options={['word', 'legibility', 'char'] as const}
 					value={mode}
 					onChange={setMode}
 				/>
 			</div>
 
-			{/* Field mode controls */}
-			{mode === 'field' && (
+			{/* Word mode controls */}
+			{mode === 'word' && (
 				<>
 					<div className="grid grid-cols-2 sm:grid-cols-3 gap-6 mb-6">
 						<Slider label="Weight High" value={weightHigh} min={100} max={900} step={10} onChange={setWeightHigh} />
@@ -259,13 +259,13 @@ export default function Demo() {
 						)}
 					</div>
 					<p className="text-xs opacity-50 mb-2" style={{ lineHeight: "1.6" }}>
-						Field mode — each character pulls toward its nearest magnetic pole (gaze direction on glasses).
+						Word mode — each word pulls toward its nearest magnetic pole (gaze direction on glasses).
 					</p>
 					<div className="flex flex-col gap-8">
 						{FIELD_PARAGRAPHS.map((para, i) => (
 							<MagnetTypeText
 								key={i}
-								mode="field"
+								mode="word"
 								axes={{ wght: [dWeightLow, dWeightHigh] }}
 								radius={dRadius}
 								falloff={falloff}
@@ -305,8 +305,8 @@ export default function Demo() {
 				</>
 			)}
 
-			{/* Block mode */}
-			{mode === 'block' && (
+			{/* Character mode */}
+			{mode === 'char' && (
 				<>
 					<div className="grid grid-cols-2 sm:grid-cols-3 gap-6 mb-8">
 						<Slider label="Spread Radius" value={blockSpreadRadius} min={20} max={300} step={10} onChange={setBlockSpreadRadius} />
@@ -314,11 +314,11 @@ export default function Demo() {
 						<Slider label="Weight Low"    value={blockWeightLow}    min={100} max={900} step={10} onChange={setBlockWeightLow}    />
 					</div>
 					<p className="text-xs opacity-50 mb-6" style={{ lineHeight: "1.6" }}>
-						Block mode — per-word weight gradient across any block element. Works with mixed content (inline code, links, etc). Move your cursor through the paragraphs below.
+						Character mode — per-character weight gradient across any block element. Works with mixed content (inline code, links, etc). Move your cursor through the paragraphs below.
 					</p>
 					<div className="flex flex-col gap-8">
-						{BLOCK_PARAGRAPHS.map((para, i) => (
-							<MagnetBlock
+						{CHAR_PARAGRAPHS.map((para, i) => (
+							<MagnetChar
 								key={i}
 								spreadRadius={dBlockSpreadRadius}
 								minWeight={dBlockWeightLow}
@@ -326,11 +326,11 @@ export default function Demo() {
 								style={sampleStyle}
 							>
 								{para}
-							</MagnetBlock>
+							</MagnetChar>
 						))}
 					</div>
 					<p className="text-xs opacity-50 italic mt-8" style={{ lineHeight: "1.8" }}>
-						spreadRadius controls how far from the cursor each word's weight fades to its minimum. Use proximityRadius to gate the effect to cursor near the element edge, or omit it to always respond. Both props are independent and combinable.
+						spreadRadius controls how far from the cursor each character's weight fades to its minimum. Use proximityRadius to gate the effect to when the cursor is near the element edge, or omit it to always respond. Both props are independent and combinable.
 					</p>
 				</>
 			)}

@@ -73,7 +73,7 @@ export default function Home() {
 						<p className="opacity-50">Drop-in component</p>
 						<CodeBlock code={`import { MagnetTypeText } from '@liiift-studio/magnettype'
 
-<MagnetTypeText mode="field" axes={{ wght: [300, 600] }} radius={120}>
+<MagnetTypeText mode="word" axes={{ wght: [300, 600] }} radius={120}>
   Your paragraph text here...
 </MagnetTypeText>`} />
 					</div>
@@ -81,7 +81,7 @@ export default function Home() {
 						<p className="opacity-50">Hook — attach to any element</p>
 						<CodeBlock code={`import { useMagnetType } from '@liiift-studio/magnettype'
 
-const ref = useMagnetType({ mode: 'field', axes: { wght: [300, 600] }, radius: 120 })
+const ref = useMagnetType({ mode: 'word', axes: { wght: [300, 600] }, radius: 120 })
 <p ref={ref}>{children}</p>`} />
 					</div>
 					<div className="flex flex-col gap-3">
@@ -98,7 +98,7 @@ const stop = startMagnetType(el, original, { axes: { wght: [300, 600] }, radius:
 						<table className="w-full text-xs">
 							<thead><tr className="opacity-50 text-left"><th className="pb-2 pr-6 font-normal">Option</th><th className="pb-2 pr-6 font-normal">Default</th><th className="pb-2 font-normal">Description</th></tr></thead>
 							<tbody className="opacity-70">
-								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors"><td className="py-2 pr-6 font-mono">mode</td><td className="py-2 pr-6">&apos;field&apos;</td><td className="py-2">&apos;field&apos; — cursor proximity drives per-word font-variation-settings. &apos;legibility&apos; — static per-character wdth boost for confusable characters.</td></tr>
+								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors"><td className="py-2 pr-6 font-mono">mode</td><td className="py-2 pr-6">&apos;word&apos;</td><td className="py-2">&apos;word&apos; — cursor proximity drives per-word font-variation-settings. &apos;legibility&apos; — static per-character wdth boost for confusable characters.</td></tr>
 								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors"><td className="py-2 pr-6 font-mono">axes</td><td className="py-2 pr-6">&#123; wght: [300, 500] &#125;</td><td className="py-2">Map of axis tag → [restValue, peakValue]. restValue applies at full distance; peakValue when cursor is directly over the word.</td></tr>
 								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors"><td className="py-2 pr-6 font-mono">radius</td><td className="py-2 pr-6">120</td><td className="py-2">Pixel radius over which the field effect fades. Words beyond this distance receive restValue.</td></tr>
 								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors"><td className="py-2 pr-6 font-mono">falloff</td><td className="py-2 pr-6">&apos;quadratic&apos;</td><td className="py-2">&apos;linear&apos; — strength decreases linearly with distance. &apos;quadratic&apos; — decreases as distance², giving a tighter hot zone.</td></tr>
