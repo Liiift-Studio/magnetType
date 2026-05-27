@@ -22,6 +22,7 @@ export const metadata: Metadata = {
 		description: "Drive per-word variable font axes with cursor proximity. A typographic interaction technique, now in one npm package.",
 	},
 	metadataBase: new URL("https://magnettype.com"),
+	alternates: { canonical: "https://magnettype.com" },
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
