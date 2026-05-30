@@ -8,5 +8,5 @@ export { MagnetBlock } from './react/MagnetBlock'
 export type { MagnetCharProps } from './react/MagnetBlock'
 /** @deprecated Use MagnetCharProps instead */
 export type { MagnetBlockProps } from './react/MagnetBlock'
-export type { MagnetTypeOptions, FalloffType, MagnetModeType, MagnetTypeModeType } from './core/types'
+export type { MagnetTypeOptions, MagnetTypeProps, ScopeType, FalloffType, MagnetModeType, MagnetTypeModeType } from './core/types'
 export { MAGNET_TYPE_CLASSES } from './core/types'

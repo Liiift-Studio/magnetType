@@ -84,7 +84,8 @@ export const MagnetChar = forwardRef<HTMLElement, MagnetCharProps>(
 
 		const mergedRef = useCallback(
 			(node: HTMLElement | null) => {
-				;(innerRef as React.MutableRefObject<HTMLElement | null>).current = node
+				// innerRef is typed as RefObject but is a MutableRefObject at runtime — write via minimal cast
+				;(innerRef as { current: HTMLElement | null }).current = node
 				if (typeof forwardedRef === 'function') forwardedRef(node)
 				else if (forwardedRef) forwardedRef.current = node
 			},
@@ -194,12 +195,18 @@ export const MagnetChar = forwardRef<HTMLElement, MagnetCharProps>(
 						}
 					}
 				} else {
-					// Fallback: live getBoundingClientRect per span (cachePositions=false or cache length mismatch)
-					for (const span of spans) {
-						if (!span) continue
+					// Fallback: live getBoundingClientRect per span (cachePositions=false or cache length mismatch).
+					// Batch-read all rects first, then write all styles — avoids read-write interleaving
+					// that forces one layout flush per character.
+					const liveCentres = spans.map(span => {
+						if (!span) return { cx: 0, cy: 0 }
 						const sr = span.getBoundingClientRect()
-						const cx = (sr.left + sr.right) / 2
-						const cy = (sr.top  + sr.bottom) / 2
+						return { cx: (sr.left + sr.right) / 2, cy: (sr.top + sr.bottom) / 2 }
+					})
+					for (let i = 0; i < spans.length; i++) {
+						const span = spans[i]
+						if (!span) continue
+						const { cx, cy } = liveCentres[i]
 						const dist = Math.sqrt((clientX - cx) ** 2 + (clientY - cy) ** 2)
 						const proximity = Math.max(0, 1 - dist / spreadRadius)
 						const eased = 1 - (1 - proximity) ** 2
@@ -233,10 +240,23 @@ export const MagnetChar = forwardRef<HTMLElement, MagnetCharProps>(
 
 		const handleScroll = useCallback(
 			() => {
-				if (lastPos.current) applyProximity(lastPos.current.x, lastPos.current.y)
+				if (!lastPos.current) return
+				// Invalidate the cache so the next applyProximity call re-reads positions at new scroll offsets
+				cacheValidRef.current = false
+				// Apply rAF throttle (same as handleMouseMove) to avoid layout thrash on fast scroll
+				if (rafThrottle) {
+					if (rafIdRef.current === null) {
+						rafIdRef.current = requestAnimationFrame(() => {
+							rafIdRef.current = null
+							if (lastPos.current) applyProximity(lastPos.current.x, lastPos.current.y)
+						})
+					}
+				} else {
+					applyProximity(lastPos.current.x, lastPos.current.y)
+				}
 			},
 			// eslint-disable-next-line react-hooks/exhaustive-deps
-			[minWeight, maxWeight, proximityRadius, spreadRadius, cachePositions, stabilizeLayout, JSON.stringify(fixedAxes)],
+			[minWeight, maxWeight, proximityRadius, spreadRadius, cachePositions, rafThrottle, stabilizeLayout, JSON.stringify(fixedAxes)],
 		)
 
 		const handleMouseLeave = useCallback(
@@ -258,20 +278,71 @@ export const MagnetChar = forwardRef<HTMLElement, MagnetCharProps>(
 			[minWeight, stabilizeLayout, JSON.stringify(fixedAxes)],
 		)
 
+		/** Mirror of handleMouseMove for touch — uses first touch point coordinates */
+		const handleTouchMove = useCallback(
+			(e: TouchEvent) => {
+				if (e.touches.length === 0) return
+				const touch = e.touches[0]
+				lastPos.current = { x: touch.clientX, y: touch.clientY }
+				if (rafThrottle) {
+					if (rafIdRef.current === null) {
+						rafIdRef.current = requestAnimationFrame(() => {
+							rafIdRef.current = null
+							if (lastPos.current) applyProximity(lastPos.current.x, lastPos.current.y)
+						})
+					}
+				} else {
+					applyProximity(touch.clientX, touch.clientY)
+				}
+			},
+			// eslint-disable-next-line react-hooks/exhaustive-deps
+			[minWeight, maxWeight, proximityRadius, spreadRadius, cachePositions, rafThrottle, stabilizeLayout, JSON.stringify(fixedAxes)],
+		)
+
+		/** Reset weights to minimum when touch ends (mirrors mouseleave behaviour) */
+		const handleTouchEnd = useCallback(
+			() => {
+				lastPos.current = null
+				if (rafIdRef.current !== null) {
+					cancelAnimationFrame(rafIdRef.current)
+					rafIdRef.current = null
+				}
+				const el = innerRef.current
+				if (el) el.style.fontVariationSettings = buildVS(minWeight)
+				for (const span of charSpansRef.current) {
+					if (!span) continue
+					span.style.fontVariationSettings = buildVS(minWeight)
+					if (stabilizeLayout) span.style.letterSpacing = ''
+				}
+			},
+			// eslint-disable-next-line react-hooks/exhaustive-deps
+			[minWeight, stabilizeLayout, JSON.stringify(fixedAxes)],
+		)
+
 		useEffect(() => {
+			// Respect prefers-reduced-motion — skip all interaction if the user prefers reduced motion
+			if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return
+
+			const el = innerRef.current
 			window.addEventListener('mousemove', handleMouseMove, { passive: true })
 			window.addEventListener('scroll', handleScroll, { passive: true, capture: true })
-			document.documentElement.addEventListener('mouseleave', handleMouseLeave)
+			window.addEventListener('touchmove', handleTouchMove, { passive: true })
+			window.addEventListener('touchend', handleTouchEnd)
+			// Attach mouseleave to the element itself so weights reset when the cursor
+			// leaves the block (not just when it exits the viewport).
+			if (el) el.addEventListener('mouseleave', handleMouseLeave)
 			return () => {
 				window.removeEventListener('mousemove', handleMouseMove)
 				window.removeEventListener('scroll', handleScroll, { capture: true })
-				document.documentElement.removeEventListener('mouseleave', handleMouseLeave)
+				window.removeEventListener('touchmove', handleTouchMove)
+				window.removeEventListener('touchend', handleTouchEnd)
+				if (el) el.removeEventListener('mouseleave', handleMouseLeave)
 				if (rafIdRef.current !== null) {
 					cancelAnimationFrame(rafIdRef.current)
 					rafIdRef.current = null
 				}
 			}
-		}, [handleMouseMove, handleScroll, handleMouseLeave])
+		}, [handleMouseMove, handleScroll, handleTouchMove, handleTouchEnd, handleMouseLeave])
 
 		// ResizeObserver + font-load cache invalidation
 		useEffect(() => {
@@ -315,23 +386,42 @@ export const MagnetChar = forwardRef<HTMLElement, MagnetCharProps>(
 				probe.style.letterSpacing = cs.letterSpacing
 				probe.textContent = rawText
 				document.body.appendChild(probe)
-				const buildFVS = (w: number) => {
-					const parts = [`'wght' ${w.toFixed(0)}`]
-					for (const [tag, val] of Object.entries(fixedAxes)) parts.push(`'${tag}' ${val}`)
-					return parts.join(', ')
+				// try/finally ensures the probe span is always removed even if an exception is thrown
+				try {
+					const buildFVS = (w: number) => {
+						const parts = [`'wght' ${w.toFixed(0)}`]
+						for (const [tag, val] of Object.entries(fixedAxes)) parts.push(`'${tag}' ${val}`)
+						return parts.join(', ')
+					}
+					probe.style.fontVariationSettings = buildFVS(maxWeight)
+					const wMax = probe.scrollWidth
+					probe.style.fontVariationSettings = buildFVS(minWeight)
+					const wMin = probe.scrollWidth
+					perCharDeltaRef.current = wMax > wMin ? (wMax - wMin) / nonSpaceCount : 0
+				} finally {
+					document.body.removeChild(probe)
 				}
-				probe.style.fontVariationSettings = buildFVS(maxWeight)
-				const wMax = probe.scrollWidth
-				probe.style.fontVariationSettings = buildFVS(minWeight)
-				const wMin = probe.scrollWidth
-				document.body.removeChild(probe)
-				perCharDeltaRef.current = wMax > wMin ? (wMax - wMin) / nonSpaceCount : 0
 			}
 
 			measure()
 			document.fonts?.ready?.then(measure)
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 		}, [stabilizeLayout, spreadRadius, minWeight, maxWeight, children, JSON.stringify(fixedAxes)])
+
+		/** Extract plain text from React children for use as aria-label */
+		const ariaLabel = useMemo(() => {
+			if (!spreadRadius) return undefined
+			function extractText(node: React.ReactNode): string {
+				if (typeof node === 'string' || typeof node === 'number') return String(node)
+				if (Array.isArray(node)) return node.map(extractText).join('')
+				if (React.isValidElement(node)) {
+					const el = node as React.ReactElement<{ children?: React.ReactNode }>
+					return extractText(el.props.children)
+				}
+				return ''
+			}
+			return extractText(children) || undefined
+		}, [children, spreadRadius])
 
 		const processedChildren = useMemo(() => {
 			if (!spreadRadius) return children
@@ -348,6 +438,7 @@ export const MagnetChar = forwardRef<HTMLElement, MagnetCharProps>(
 							<span
 								key={i}
 								ref={el => { charSpansRef.current[i] = el }}
+								aria-hidden="true"
 								style={{ fontVariationSettings: buildVS(minWeight) }}
 							>
 								{char}
@@ -373,6 +464,7 @@ export const MagnetChar = forwardRef<HTMLElement, MagnetCharProps>(
 			<Tag
 				ref={mergedRef}
 				className={className}
+				aria-label={ariaLabel}
 				style={{ fontVariationSettings: buildVS(minWeight), ...style }}
 			>
 				{processedChildren}

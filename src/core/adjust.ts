@@ -28,13 +28,22 @@ function collectTextNodes(node: Node, result: Text[] = []): Text[] {
 	return result
 }
 
+/** Per-axis RegExp cache — avoids re-compiling the same pattern on every rAF frame. */
+const axisPatternCache = new Map<string, RegExp>()
+
 /**
  * Override a single axis value inside a font-variation-settings string,
  * preserving all other axis values. Adds the axis if it is not already present.
  */
 function overrideAxis(baseFVS: string, axis: string, value: number): string {
 	if (!baseFVS || baseFVS === 'normal') return `"${axis}" ${value}`
-	const pattern = new RegExp(`(["'])${axis}\\1\\s+[\\d.eE+-]+`)
+	let pattern = axisPatternCache.get(axis)
+	if (!pattern) {
+		// Character class uses [-+] with - at the start to avoid range-operator ambiguity.
+		// Leading -? allows negative axis values (e.g. "slnt" -12).
+		pattern = new RegExp(`(["'])${axis}\\1\\s+-?[\\d.eE][\\d.eE+-]*`)
+		axisPatternCache.set(axis, pattern)
+	}
 	const replacement = `"${axis}" ${value}`
 	return pattern.test(baseFVS)
 		? baseFVS.replace(pattern, replacement)
@@ -108,6 +117,9 @@ export function getCleanHTML(el: HTMLElement): string {
  *
  * @param element      - The element that was previously modified
  * @param originalHTML - The snapshot passed to applyMagnetType / startMagnetType
+ *
+ * @security originalHTML is assigned to innerHTML without sanitization.
+ * Always pass the value returned by getCleanHTML() — never pass attacker-controlled input.
  */
 export function removeMagnetType(element: HTMLElement, originalHTML: string): void {
 	element.innerHTML = originalHTML
@@ -130,6 +142,9 @@ export function removeMagnetType(element: HTMLElement, originalHTML: string): vo
  * @param originalHTML - Clean HTML snapshot from getCleanHTML()
  * @param options      - MagnetTypeOptions; wdthBoost, radius, falloff, scope, props used
  * @returns            - A stop function. Call it to cancel listeners and restore markup.
+ *
+ * @security originalHTML is assigned to innerHTML without sanitization.
+ * Always pass the value returned by getCleanHTML() — never pass attacker-controlled input.
  */
 export function applyMagnetType(
 	element: HTMLElement,
@@ -191,9 +206,11 @@ export function applyMagnetType(
 					fragment.appendChild(document.createTextNode(ch))
 				}
 			} else {
-				// Confusable: wrap in a char span, starting at base wdth (no boost yet)
+				// Confusable: wrap in a char span, starting at base wdth (no boost yet).
+				// aria-hidden="true" — screen readers use the parent element's text directly.
 				const span = document.createElement('span')
 				span.className = MAGNET_TYPE_CLASSES.char
+				span.setAttribute('aria-hidden', 'true')
 				span.style.fontVariationSettings = overrideAxis(baseFVS, 'wdth', baseWdth)
 				span.textContent = ch
 				fragment.appendChild(span)
@@ -201,7 +218,7 @@ export function applyMagnetType(
 			}
 		}
 
-		textNode.parentNode!.replaceChild(fragment, textNode)
+		textNode.parentNode?.replaceChild(fragment, textNode)
 	}
 
 	// --- Pass 4: Restore scroll after DOM mutation ---
@@ -245,13 +262,19 @@ export function applyMagnetType(
 	let cursorX = -9999
 	let cursorY = -9999
 	let cursorInside = false
-	let rafId = 0
+	// null = no pending frame; non-null = a frame is queued. Using null avoids the
+	// ambiguity of 0 as a valid rAF handle on some runtimes.
+	let rafId: number | null = null
 	let active = true
 
 	// Timer handle for removing the transition property after transitionMs
 	let transitionTimer: ReturnType<typeof setTimeout> | null = null
 
+	// frame() runs at most once per input event — it does NOT re-schedule itself.
+	// This means the loop is idle when the cursor is stationary, saving the full
+	// per-frame work budget (distance math, overrideAxis calls, style writes).
 	function frame(): void {
+		rafId = null
 		if (!active) return
 
 		if (!cursorInside) {
@@ -270,7 +293,6 @@ export function applyMagnetType(
 					transitionTimer = null
 				}, transitionMs)
 			}
-			rafId = 0
 			return
 		}
 
@@ -302,20 +324,18 @@ export function applyMagnetType(
 			span.style.fontVariationSettings = overrideAxis(baseFVS, 'wdth', baseWdth + boost)
 			if (props) applyProps(span, props, strength)
 		})
-
-		rafId = requestAnimationFrame(frame)
 	}
 
 	function onMouseMove(e: MouseEvent): void {
 		cursorX = e.clientX
 		cursorY = e.clientY
 		if (!cursorInside) cursorInside = true
-		if (rafId === 0) rafId = requestAnimationFrame(frame)
+		if (rafId === null) rafId = requestAnimationFrame(frame)
 	}
 
 	function onMouseLeave(): void {
 		cursorInside = false
-		if (rafId === 0) rafId = requestAnimationFrame(frame)
+		if (rafId === null) rafId = requestAnimationFrame(frame)
 	}
 
 	function onTouchMove(e: TouchEvent): void {
@@ -323,12 +343,12 @@ export function applyMagnetType(
 		cursorX = e.touches[0].clientX
 		cursorY = e.touches[0].clientY
 		if (!cursorInside) cursorInside = true
-		if (rafId === 0) rafId = requestAnimationFrame(frame)
+		if (rafId === null) rafId = requestAnimationFrame(frame)
 	}
 
 	function onTouchEnd(): void {
 		cursorInside = false
-		if (rafId === 0) rafId = requestAnimationFrame(frame)
+		if (rafId === null) rafId = requestAnimationFrame(frame)
 	}
 
 	const eventTarget = scope === 'document' ? document : element
@@ -339,7 +359,7 @@ export function applyMagnetType(
 
 	return () => {
 		active = false
-		cancelAnimationFrame(rafId)
+		if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
 		if (transitionTimer !== null) clearTimeout(transitionTimer)
 		if (ro) ro.disconnect()
 		eventTarget.removeEventListener('mousemove', onMouseMove as EventListener)
@@ -366,6 +386,9 @@ export function applyMagnetType(
  * @param originalHTML - Clean HTML snapshot from getCleanHTML()
  * @param options      - MagnetTypeOptions; axes, radius, falloff, magnetMode, scope, props used
  * @returns            - A stop function. Call it to cancel the rAF loop and restore markup.
+ *
+ * @security originalHTML is assigned to innerHTML without sanitization.
+ * Always pass the value returned by getCleanHTML() — never pass attacker-controlled input.
  */
 export function startMagnetType(
 	element: HTMLElement,
@@ -396,7 +419,11 @@ export function startMagnetType(
 	// --- Pass 1: Reset (idempotent) ---
 	element.innerHTML = originalHTML
 
-	// --- Pass 2: Wrap each word in a span ---
+	// --- Pass 2: Read base font-variation-settings before any span injection ---
+	// Must be read here (before DOM mutation) to avoid picking up inline FVS from child spans.
+	const baseFVS = getComputedStyle(element).fontVariationSettings
+
+	// --- Pass 3: Wrap each word in a span ---
 	const textNodes = collectTextNodes(element)
 	const wordSpans: HTMLElement[] = []
 
@@ -417,17 +444,19 @@ export function startMagnetType(
 			const isLastWord = tokens[i + 3] === undefined
 			const trailingSpace = isLastWord ? (tokens[i + 2] ?? '') : ''
 
+			// aria-hidden="true" — screen readers use the parent element's text directly.
 			const span = document.createElement('span')
 			span.className = MAGNET_TYPE_CLASSES.word
+			span.setAttribute('aria-hidden', 'true')
 			span.textContent = space + word + trailingSpace
 			fragment.appendChild(span)
 			wordSpans.push(span)
 		}
 
-		textNode.parentNode!.replaceChild(fragment, textNode)
+		textNode.parentNode?.replaceChild(fragment, textNode)
 	}
 
-	// --- Pass 3: Restore scroll after DOM mutation ---
+	// --- Pass 4: Restore scroll after DOM mutation ---
 	requestAnimationFrame(() => {
 		if (typeof window !== 'undefined' && Math.abs(window.scrollY - scrollY) > 2) {
 			window.scrollTo({ top: scrollY, behavior: 'instant' })
@@ -435,9 +464,6 @@ export function startMagnetType(
 	})
 
 	if (wordSpans.length === 0) return () => {}
-
-	// Read base fontVariationSettings from element once (preserves parent axes)
-	const baseFVS = getComputedStyle(element).fontVariationSettings
 
 	// Compute the rest FVS (applied when cursor is beyond radius or not present)
 	const restFVS = overrideAxes(
@@ -448,6 +474,7 @@ export function startMagnetType(
 	// --- stabilizeLayout: measure text width delta at peak vs rest weight ---
 	// Done synchronously before first paint of the interaction. Temporarily sets
 	// white-space: nowrap to get unconstrained text width for accurate delta measurement.
+	// try/finally guarantees saved styles are always restored even if an exception is thrown.
 	let perCharDelta = 0
 	if (stabilizeLayout) {
 		const peakFVS = overrideAxes(
@@ -461,21 +488,23 @@ export function startMagnetType(
 		element.style.whiteSpace = 'nowrap'
 		element.style.overflow = 'visible'
 
-		element.style.fontVariationSettings = peakFVS
-		const widthAtPeak = element.scrollWidth
+		try {
+			element.style.fontVariationSettings = peakFVS
+			const widthAtPeak = element.scrollWidth
 
-		element.style.fontVariationSettings = restFVS
-		const widthAtRest = element.scrollWidth
+			element.style.fontVariationSettings = restFVS
+			const widthAtRest = element.scrollWidth
 
-		element.style.fontVariationSettings = savedFVS
-		element.style.whiteSpace = savedWS
-		element.style.overflow = savedOF
-
-		const nonSpaceCount = wordSpans.reduce(
-			(n, s) => n + (s.textContent?.replace(/\s+/g, '').length ?? 0), 0
-		)
-		if (nonSpaceCount > 0 && widthAtPeak > widthAtRest) {
-			perCharDelta = (widthAtPeak - widthAtRest) / nonSpaceCount
+			const nonSpaceCount = wordSpans.reduce(
+				(n, s) => n + (s.textContent?.replace(/\s+/g, '').length ?? 0), 0
+			)
+			if (nonSpaceCount > 0 && widthAtPeak > widthAtRest) {
+				perCharDelta = (widthAtPeak - widthAtRest) / nonSpaceCount
+			}
+		} finally {
+			element.style.fontVariationSettings = savedFVS
+			element.style.whiteSpace = savedWS
+			element.style.overflow = savedOF
 		}
 	}
 
@@ -512,13 +541,19 @@ export function startMagnetType(
 	let cursorX = -9999
 	let cursorY = -9999
 	let cursorInside = false
-	let rafId = 0
+	// null = no pending frame; non-null = a frame is queued. Using null avoids the
+	// ambiguity of 0 as a valid rAF handle on some runtimes.
+	let rafId: number | null = null
 	let active = true
 
 	// Timer handle for removing the transition property after transitionMs
 	let transitionTimer: ReturnType<typeof setTimeout> | null = null
 
+	// frame() runs at most once per input event — it does NOT re-schedule itself.
+	// This means the loop is idle when the cursor is stationary, saving the full
+	// per-frame work budget (distance math, overrideAxes calls, style writes).
 	function frame(): void {
+		rafId = null
 		if (!active) return
 
 		if (!cursorInside) {
@@ -538,7 +573,6 @@ export function startMagnetType(
 					transitionTimer = null
 				}, transitionMs)
 			}
-			rafId = 0
 			return
 		}
 
@@ -582,20 +616,18 @@ export function startMagnetType(
 
 			if (props) applyProps(span, props, strength)
 		})
-
-		rafId = requestAnimationFrame(frame)
 	}
 
 	function onMouseMove(e: MouseEvent): void {
 		cursorX = e.clientX
 		cursorY = e.clientY
 		if (!cursorInside) cursorInside = true
-		if (rafId === 0) rafId = requestAnimationFrame(frame)
+		if (rafId === null) rafId = requestAnimationFrame(frame)
 	}
 
 	function onMouseLeave(): void {
 		cursorInside = false
-		if (rafId === 0) rafId = requestAnimationFrame(frame)
+		if (rafId === null) rafId = requestAnimationFrame(frame)
 	}
 
 	function onTouchMove(e: TouchEvent): void {
@@ -603,12 +635,12 @@ export function startMagnetType(
 		cursorX = e.touches[0].clientX
 		cursorY = e.touches[0].clientY
 		if (!cursorInside) cursorInside = true
-		if (rafId === 0) rafId = requestAnimationFrame(frame)
+		if (rafId === null) rafId = requestAnimationFrame(frame)
 	}
 
 	function onTouchEnd(): void {
 		cursorInside = false
-		if (rafId === 0) rafId = requestAnimationFrame(frame)
+		if (rafId === null) rafId = requestAnimationFrame(frame)
 	}
 
 	const eventTarget = scope === 'document' ? document : element
@@ -619,7 +651,7 @@ export function startMagnetType(
 
 	return () => {
 		active = false
-		cancelAnimationFrame(rafId)
+		if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
 		if (transitionTimer !== null) clearTimeout(transitionTimer)
 		if (ro) ro.disconnect()
 		eventTarget.removeEventListener('mousemove', onMouseMove as EventListener)

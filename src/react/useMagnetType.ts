@@ -10,7 +10,8 @@ import type { MagnetTypeOptions } from '../core/types'
  * For mode: 'legibility' — starts the cursor-driven wdth boost via applyMagnetType.
  *
  * Both modes return a stop function on mount and restart when options change.
- * No ResizeObserver needed — the rAF loop reads live getBoundingClientRect each frame.
+ * When cachePositions is true (the default), a ResizeObserver is attached to rebuild
+ * the position cache on resize. Set cachePositions: false to disable it.
  *
  * Defaults to 'word' mode if mode is undefined.
  */
@@ -21,7 +22,7 @@ export function useMagnetType(options: MagnetTypeOptions) {
 	optionsRef.current = options
 	const stopRef = useRef<(() => void) | null>(null)
 
-	// Determine which mode we're in — default to 'word'
+	// Determine which mode we're in — default to 'word'; 'field' is an alias for 'word'
 	const mode = options.mode ?? 'word'
 
 	// Destructure options that should trigger a re-run when changed
@@ -46,7 +47,8 @@ export function useMagnetType(options: MagnetTypeOptions) {
 
 		const currentMode = optionsRef.current.mode ?? 'word'
 
-		if (currentMode === 'word') {
+		// 'field' is an accepted alias for 'word'
+		if (currentMode === 'word' || currentMode === 'field') {
 			stopRef.current = startMagnetType(el, originalHTMLRef.current, optionsRef.current)
 		} else {
 			stopRef.current = applyMagnetType(el, originalHTMLRef.current, optionsRef.current)
@@ -65,9 +67,16 @@ export function useMagnetType(options: MagnetTypeOptions) {
 		}
 	}, [run])
 
-	// Re-run after fonts load — ensures measurements are taken on the loaded font
+	// Re-run after fonts load — ensures measurements are taken on the loaded font.
+	// The mounted guard prevents calling run on a detached element if the component
+	// unmounts before fonts finish loading, and avoids redundant re-runs when
+	// document.fonts.ready is already resolved (synchronous .then firing).
 	useEffect(() => {
-		document.fonts?.ready?.then(run)
+		let mounted = true
+		document.fonts?.ready?.then(() => {
+			if (mounted) run()
+		})
+		return () => { mounted = false }
 	}, [run])
 
 	return ref

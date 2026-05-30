@@ -23,7 +23,9 @@ export const MagnetTypeText = forwardRef<HTMLElement, MagnetTypeTextProps>(
 		/** Callback ref that satisfies both the forwarded ref and the internal hook ref */
 		const mergedRef = useCallback(
 			(node: HTMLElement | null) => {
-				;(innerRef as React.MutableRefObject<HTMLElement | null>).current = node
+				// useRef<HTMLElement>(null) returns MutableRefObject<HTMLElement | null> — cast is not needed
+				// but the hook types it as RefObject; we write directly via type assertion for the internal ref.
+				(innerRef as { current: HTMLElement | null }).current = node
 				if (typeof ref === 'function') {
 					ref(node)
 				} else if (ref) {

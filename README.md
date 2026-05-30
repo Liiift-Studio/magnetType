@@ -101,7 +101,7 @@ const ref = useMagnetType({ mode: 'word', axes: { wght: [300, 700] }, radius: 15
 return <p ref={ref}>{children}</p>
 ```
 
-The hook starts the cursor-proximity rAF loop on mount and tears it down cleanly on unmount. After fonts load (`document.fonts.ready`), the hook re-runs to ensure measurements are taken on the loaded font.
+The hook starts the cursor-proximity rAF loop on mount and tears it down cleanly on unmount. After fonts load (`document.fonts.ready`), the hook re-runs to ensure measurements are taken on the loaded font. When `cachePositions` is true (the default), a `ResizeObserver` is attached to rebuild the position cache on resize.
 
 ### React — legibility mode
 
@@ -145,18 +145,16 @@ const el = document.querySelector('p')
 const original = getCleanHTML(el)
 const opts = { mode: 'legibility', wdthBoost: 8 }
 
-function run() {
-  applyMagnetType(el, original, opts)
-}
+// applyMagnetType returns a stop function and manages its own ResizeObserver internally —
+// no need to wrap it in an external ResizeObserver.
+let stop = applyMagnetType(el, original, opts)
+document.fonts.ready.then(() => {
+  stop()
+  stop = applyMagnetType(el, original, opts)
+})
 
-run()
-document.fonts.ready.then(run)
-
-const ro = new ResizeObserver(() => run())
-ro.observe(el)
-
-// Later — disconnect and restore original markup:
-// ro.disconnect()
+// Later — stop the effect and restore original markup:
+// stop()
 // removeMagnetType(el, original)
 ```
 
@@ -185,7 +183,7 @@ const legibilityOpts: MagnetTypeOptions = {
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `mode` | `'word'` | `'word'` — cursor proximity drives per-word `font-variation-settings` via a continuous rAF loop. `'legibility'` — static per-character `wdth` boost on visually confusable characters |
+| `mode` | `'word'` | `'word'` (alias: `'field'`) — cursor proximity drives per-word `font-variation-settings` via a continuous rAF loop. `'legibility'` — cursor-driven per-character `wdth` boost on visually confusable characters |
 | `axes` | `{ wght: [300, 500] }` | *(field mode)* Map of axis tag → `[restValue, peakValue]` |
 | `radius` | `120` | Pixel radius over which the field effect fades from each word's centre (field mode) or each character's centre (legibility mode) |
 | `falloff` | `'quadratic'` | `'linear'` or `'quadratic'` falloff curve |
@@ -251,4 +249,4 @@ The package itself has zero runtime dependencies. Do not remove this entry.
 
 ---
 
-Current version: 1.2.1
+See the npm badge at the top of this file for the current published version.
