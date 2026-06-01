@@ -280,9 +280,9 @@ export default function Demo() {
 						Word mode — each word pulls toward its nearest magnetic pole (gaze direction on glasses).
 					</p>
 					<div className="flex flex-col gap-8">
-						{FIELD_PARAGRAPHS.map((para, i) => (
+						{FIELD_PARAGRAPHS.map(para => (
 							<MagnetTypeText
-								key={i}
+								key={para}
 								mode="word"
 								axes={{ wght: [dWeightLow, dWeightHigh] }}
 								radius={dRadius}
@@ -335,9 +335,9 @@ export default function Demo() {
 						Character mode — per-character weight gradient across any block element. Works with mixed content (inline code, links, etc). Move your cursor through the paragraphs below.
 					</p>
 					<div className="flex flex-col gap-8">
-						{CHAR_PARAGRAPHS.map((para, i) => (
+						{CHAR_PARAGRAPHS.map(para => (
 							<MagnetChar
-								key={i}
+								key={para}
 								spreadRadius={dBlockSpreadRadius}
 								minWeight={dBlockWeightLow}
 								maxWeight={dBlockWeightHigh}
