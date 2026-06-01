@@ -7,7 +7,12 @@ export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
 export default async function Image() {
-	const interLight = await readFile(join(process.cwd(), 'public/fonts/inter-300.woff'))
+	let interLight: Buffer
+	try {
+		interLight = await readFile(join(process.cwd(), 'public/fonts/inter-300.woff'))
+	} catch (err) {
+		throw new Error(`OG image: failed to load inter-300.woff — run npm run sync to restore fonts. ${err}`)
+	}
 	return new ImageResponse(
 		(
 			<div style={{ background: '#0a1520', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '72px 80px', fontFamily: 'Inter, sans-serif' }}>

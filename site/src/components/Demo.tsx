@@ -1,7 +1,7 @@
 "use client"
 
 // Interactive demo for magnetType — word mode, legibility mode, and character mode
-import { useState, useDeferredValue, useEffect } from "react"
+import { useState, useDeferredValue, useEffect, useCallback, useMemo, useId } from "react"
 import { MagnetTypeText, MagnetChar } from "@liiift-studio/magnettype"
 import type { MagnetTypeModeType, FalloffType, MagnetModeType } from "@liiift-studio/magnettype"
 
@@ -27,7 +27,7 @@ function GyroIcon() {
 	)
 }
 
-/** Slider sub-component with label, value display, aria-label, and optional tooltip */
+/** Slider sub-component with label, value display, and aria linkage between input and value readout */
 function Slider({ label, value, min, max, step, onChange, title }: {
 	label: string
 	value: number
@@ -37,6 +37,7 @@ function Slider({ label, value, min, max, step, onChange, title }: {
 	onChange: (v: number) => void
 	title?: string
 }) {
+	const valueId = useId()
 	return (
 		<div className="flex flex-col gap-1">
 			<span className="text-xs uppercase tracking-widest opacity-50">{label}</span>
@@ -47,17 +48,18 @@ function Slider({ label, value, min, max, step, onChange, title }: {
 				step={step}
 				value={value}
 				aria-label={label}
+				aria-describedby={valueId}
 				title={title}
 				onChange={e => onChange(Number(e.target.value))}
 				onTouchStart={e => e.stopPropagation()}
-				style={{ touchAction: 'none' }}
+				style={{ touchAction: 'pan-y' }}
 			/>
-			<span className="tabular-nums text-xs opacity-50 text-right">{value}</span>
+			<span id={valueId} className="tabular-nums text-xs opacity-50 text-right">{value}</span>
 		</div>
 	)
 }
 
-/** Toggle button row — highlights the active option */
+/** Toggle button row — highlights the active option; group label is announced by screen readers */
 function ToggleGroup<T extends string>({ label, options, value, onChange, titles }: {
 	label: string
 	options: readonly T[]
@@ -66,9 +68,10 @@ function ToggleGroup<T extends string>({ label, options, value, onChange, titles
 	/** Optional tooltip for each option, keyed by option value */
 	titles?: Partial<Record<T, string>>
 }) {
+	const labelId = useId()
 	return (
-		<>
-			<span className="text-xs uppercase tracking-widest opacity-50">{label}</span>
+		<div role="group" aria-labelledby={labelId} className="contents">
+			<span id={labelId} className="text-xs uppercase tracking-widest opacity-50">{label}</span>
 			{options.map(v => (
 				<button
 					key={v}
@@ -85,22 +88,24 @@ function ToggleGroup<T extends string>({ label, options, value, onChange, titles
 					{v}
 				</button>
 			))}
-		</>
+		</div>
 	)
 }
 
-/** Boolean toggle button — highlights when active */
-function ToggleButton({ label, value, onChange, icon, title }: {
+/** Boolean toggle button — highlights when active; accepts an optional aria-label for stable accessible names */
+function ToggleButton({ label, value, onChange, icon, title, 'aria-label': ariaLabel }: {
 	label: React.ReactNode
 	value: boolean
 	onChange: (v: boolean) => void
 	icon?: React.ReactNode
 	title?: string
+	'aria-label'?: string
 }) {
 	return (
 		<button
 			onClick={() => onChange(!value)}
 			aria-pressed={value}
+			aria-label={ariaLabel}
 			title={title}
 			className="text-xs px-3 py-1 rounded-full border transition-opacity flex items-center gap-1.5"
 			style={{
@@ -120,6 +125,14 @@ const CHAR_PARAGRAPHS = [
 	`Move your cursor slowly across the paragraphs. Characters nearest the cursor rise toward their peak weight, fading back as you move away. The result is a living texture that responds to presence — not animation for its own sake, but legibility shaped by attention.`,
 	`Character mode works per-character across any block element — including mixed content with inline code, links, or other elements. The weight gradient follows the cursor continuously, adjusted on scroll so the effect never drifts.`,
 ]
+
+/** Stable sample style — defined outside component to avoid new reference on every render */
+const sampleStyle: React.CSSProperties = {
+	fontFamily: "var(--font-merriweather), serif",
+	fontSize: "1.125rem",
+	lineHeight: "1.8",
+	fontVariationSettings: '"wght" 300, "opsz" 18, "wdth" 100',
+}
 
 /** Interactive magnetType demo — word, legibility, and character modes */
 export default function Demo() {
@@ -176,47 +189,58 @@ export default function Demo() {
 		}
 	}, [gyroMode])
 
-	/** Toggle gyro — requests iOS permission if needed */
-	const toggleGyro = async () => {
+	/** Toggle gyro — requests iOS permission if needed; shows alert if denied */
+	const toggleGyro = useCallback(async () => {
 		if (gyroMode) {
 			setGyroMode(false)
 			return
 		}
-		// iOS 13+ requires permission
+		// iOS 13+ requires explicit permission
 		const DOE = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> }
 		if (typeof DOE.requestPermission === 'function') {
 			try {
 				const permission = await DOE.requestPermission()
-				if (permission === 'granted') setGyroMode(true)
+				if (permission === 'granted') {
+					setGyroMode(true)
+				} else {
+					alert('Gyro access was denied. Enable motion & orientation access in Settings > Safari to use this feature.')
+				}
 			} catch {
-				// permission denied or unavailable
+				alert('Gyro permission could not be requested. Enable motion & orientation access in Settings > Safari.')
 			}
 		} else {
 			setGyroMode(true)
 		}
-	}
+	}, [gyroMode])
 
 	const dWeightHigh = useDeferredValue(weightHigh)
 	const dWeightLow = useDeferredValue(weightLow)
 	const dRadius = useDeferredValue(radius)
 
-	const sampleStyle: React.CSSProperties = {
-		fontFamily: "var(--font-merriweather), serif",
-		fontSize: "1.125rem",
-		lineHeight: "1.8",
-		fontVariationSettings: '"wght" 300, "opsz" 18, "wdth" 100',
-	}
+	// Build merged props object for word mode — memoised to avoid unnecessary child re-renders
+	const fieldProps = useMemo(
+		() => opacityProp || italicProp
+			? {
+				...(opacityProp ? { opacity: [0.5, 1.0] as [number, number] } : {}),
+				...(italicProp ? { italic: true } : {}),
+			}
+			: undefined,
+		[opacityProp, italicProp]
+	)
 
-	// Build merged props object for word mode
-	const fieldProps = opacityProp || italicProp
-		? {
-			...(opacityProp ? { opacity: [0.5, 1.0] as [number, number] } : {}),
-			...(italicProp ? { italic: true } : {}),
-		}
-		: undefined
+	// Guard: ensure deferred block weights never invert (char mode)
+	const safeBlockWeightLow = Math.min(dBlockWeightLow, dBlockWeightHigh)
+	const safeBlockWeightHigh = Math.max(dBlockWeightLow, dBlockWeightHigh)
 
 	return (
 		<div className="w-full">
+			{/* Screen-reader live region announces mode and state changes */}
+			<div aria-live="polite" aria-atomic="true" className="sr-only">
+				{mode === 'char' && 'Character mode active'}
+				{mode === 'word' && `Word mode active, ${magnetMode}`}
+				{mode === 'legibility' && 'Legibility mode active'}
+			</div>
+
 			{/* Mode toggle */}
 			<div className="flex flex-wrap items-center gap-3 mb-6">
 				<ToggleGroup
@@ -262,15 +286,16 @@ export default function Demo() {
 							}}
 						/>
 					</div>
-					<div className="flex flex-wrap items-center gap-3 mb-8">
-						<span className="text-xs uppercase tracking-widest opacity-50">Props</span>
+					<div role="group" aria-label="Props" className="flex flex-wrap items-center gap-3 mb-8">
+						<span className="text-xs uppercase tracking-widest opacity-50" aria-hidden="true">Props</span>
 						<ToggleButton label="opacity" value={opacityProp} onChange={setOpacityProp} title="Also fade word opacity in proportion to cursor proximity — near words appear at full opacity, distant words fade" />
 						<ToggleButton label="italic" value={italicProp} onChange={setItalicProp} title="Italicise words as they enter the magnetic field, reverting to upright as they leave" />
 						{showGyro && (
 							<ToggleButton
-								label={gyroMode ? "Gaze active" : "gyro"}
+								label="gyro"
+								aria-label="Gyro / gaze control"
 								value={gyroMode}
-								onChange={toggleGyro}
+								onChange={() => { void toggleGyro() }}
 								icon={<GyroIcon />}
 								title="On glasses: head orientation = gaze position. Tilt to simulate."
 							/>
@@ -280,11 +305,11 @@ export default function Demo() {
 						Word mode — each word pulls toward its nearest magnetic pole (gaze direction on glasses).
 					</p>
 					<div className="flex flex-col gap-8">
-						{FIELD_PARAGRAPHS.map((para, i) => (
+						{FIELD_PARAGRAPHS.map((para) => (
 							<MagnetTypeText
-								key={i}
+								key={para.slice(0, 32)}
 								mode="word"
-								axes={{ wght: [dWeightLow, dWeightHigh] }}
+								axes={{ wght: [Math.min(dWeightLow, dWeightHigh), Math.max(dWeightLow, dWeightHigh)] }}
 								radius={dRadius}
 								falloff={falloff}
 								magnetMode={magnetMode}
@@ -298,7 +323,7 @@ export default function Demo() {
 					<p className="text-xs opacity-50 italic mt-8" style={{ lineHeight: "1.8" }}>
 						{gyroMode
 							? "On smart glasses, head orientation maps directly to gaze. magnetType responds to where you’re looking — axis variation follows your gaze across the text. Each word responds to proximity independently: words inside the radius attract toward the peak weight, words outside hold at rest."
-							: "Move your cursor through the text — on glasses, this is gaze. Each word responds to proximity independently: words inside the radius attract toward the peak weight, words outside hold at rest. Try switching between attract and repel, or between linear and quadratic falloff. Cross-paragraph by default: all paragraphs respond to the same cursor."
+							: "Move your cursor through the text — on glasses, this is gaze. On touch devices, try the gyro button if your device supports orientation events. Each word responds to proximity independently: words inside the radius attract toward the peak weight, words outside hold at rest. Try switching between attract and repel, or between linear and quadratic falloff. Cross-paragraph by default: all paragraphs respond to the same cursor."
 						}
 					</p>
 				</>
@@ -335,12 +360,12 @@ export default function Demo() {
 						Character mode — per-character weight gradient across any block element. Works with mixed content (inline code, links, etc). Move your cursor through the paragraphs below.
 					</p>
 					<div className="flex flex-col gap-8">
-						{CHAR_PARAGRAPHS.map((para, i) => (
+						{CHAR_PARAGRAPHS.map((para) => (
 							<MagnetChar
-								key={i}
+								key={para.slice(0, 32)}
 								spreadRadius={dBlockSpreadRadius}
-								minWeight={dBlockWeightLow}
-								maxWeight={dBlockWeightHigh}
+								minWeight={safeBlockWeightLow}
+								maxWeight={safeBlockWeightHigh}
 								style={sampleStyle}
 							>
 								{para}
