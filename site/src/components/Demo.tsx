@@ -40,7 +40,7 @@ function Slider({ label, value, min, max, step, onChange, title }: {
 	const valueId = useId()
 	return (
 		<div className="flex flex-col gap-1">
-			<span className="text-xs uppercase tracking-widest opacity-50">{label}</span>
+			<span className="text-xs uppercase tracking-[0.18em] font-medium text-muted">{label}</span>
 			<input
 				type="range"
 				min={min}
@@ -54,7 +54,7 @@ function Slider({ label, value, min, max, step, onChange, title }: {
 				onTouchStart={e => e.stopPropagation()}
 				style={{ touchAction: 'pan-y' }}
 			/>
-			<span id={valueId} className="tabular-nums text-xs opacity-50 text-right">{value}</span>
+			<span id={valueId} className="tabular-nums text-xs text-muted text-right">{value}</span>
 		</div>
 	)
 }
@@ -71,7 +71,7 @@ function ToggleGroup<T extends string>({ label, options, value, onChange, titles
 	const labelId = useId()
 	return (
 		<div role="group" aria-labelledby={labelId} className="contents">
-			<span id={labelId} className="text-xs uppercase tracking-widest opacity-50">{label}</span>
+			<span id={labelId} className="text-xs uppercase tracking-[0.18em] font-medium text-muted">{label}</span>
 			{options.map(v => (
 				<button
 					key={v}
@@ -287,7 +287,7 @@ export default function Demo() {
 						/>
 					</div>
 					<div role="group" aria-label="Props" className="flex flex-wrap items-center gap-3 mb-8">
-						<span className="text-xs uppercase tracking-widest opacity-50" aria-hidden="true">Props</span>
+						<span className="text-xs uppercase tracking-[0.18em] font-medium text-muted" aria-hidden="true">Props</span>
 						<ToggleButton label="opacity" value={opacityProp} onChange={setOpacityProp} title="Also fade word opacity in proportion to cursor proximity — near words appear at full opacity, distant words fade" />
 						<ToggleButton label="italic" value={italicProp} onChange={setItalicProp} title="Italicise words as they enter the magnetic field, reverting to upright as they leave" />
 						{showGyro && (
@@ -301,7 +301,7 @@ export default function Demo() {
 							/>
 						)}
 					</div>
-					<p className="text-xs opacity-50 mb-2" style={{ lineHeight: "1.6" }}>
+					<p className="text-xs text-muted mb-2" style={{ lineHeight: "1.6" }}>
 						Word mode — each word pulls toward its nearest magnetic pole (gaze direction on glasses).
 					</p>
 					<div className="flex flex-col gap-8">
@@ -320,7 +320,7 @@ export default function Demo() {
 							</MagnetTypeText>
 						))}
 					</div>
-					<p className="text-xs opacity-50 italic mt-8" style={{ lineHeight: "1.8" }}>
+					<p className="text-xs text-muted italic mt-8" style={{ lineHeight: "1.8" }}>
 						{gyroMode
 							? "On smart glasses, head orientation maps directly to gaze. magnetType responds to where you’re looking — axis variation follows your gaze across the text. Each word responds to proximity independently: words inside the radius attract toward the peak weight, words outside hold at rest."
 							: "Move your cursor through the text — on glasses, this is gaze. On touch devices, try the gyro button if your device supports orientation events. Each word responds to proximity independently: words inside the radius attract toward the peak weight, words outside hold at rest. Try switching between attract and repel, or between linear and quadratic falloff. Cross-paragraph by default: all paragraphs respond to the same cursor."
@@ -332,7 +332,7 @@ export default function Demo() {
 			{/* Legibility mode controls + text */}
 			{mode === 'legibility' && (
 				<>
-					<p className="text-xs opacity-50 mb-8">
+					<p className="text-xs text-muted mb-8">
 						Legibility mode boosts the wdth axis on visually confusable characters (il1I, rn, 0O) in proportion to their confusion risk. Move your cursor over the text — characters near the cursor receive the full boost, fading out by distance. On touch devices the boost is always active.
 					</p>
 					<MagnetTypeText
@@ -342,7 +342,7 @@ export default function Demo() {
 					>
 						{LEGIBILITY_TEXT}
 					</MagnetTypeText>
-					<p className="text-xs opacity-50 italic mt-8" style={{ lineHeight: "1.8" }}>
+					<p className="text-xs text-muted italic mt-8" style={{ lineHeight: "1.8" }}>
 						Characters like il, 1I, rn, and 0O receive a proportional wdth boost based on their confusion risk — the most ambiguous get the full boost, lower-risk characters get a partial boost. The result is marginally wider letterforms exactly where disambiguation matters most.
 					</p>
 				</>
@@ -356,7 +356,7 @@ export default function Demo() {
 						<Slider label="Weight High"   value={blockWeightHigh}   min={100} max={900} step={10} onChange={setBlockWeightHigh}   title="Maximum font weight applied to characters directly under the cursor" />
 						<Slider label="Weight Low"    value={blockWeightLow}    min={100} max={900} step={10} onChange={setBlockWeightLow}    title="Resting font weight for characters beyond the spread radius — the weight the text returns to when the cursor moves away" />
 					</div>
-					<p className="text-xs opacity-50 mb-6" style={{ lineHeight: "1.6" }}>
+					<p className="text-xs text-muted mb-6" style={{ lineHeight: "1.6" }}>
 						Character mode — per-character weight gradient across any block element. Works with mixed content (inline code, links, etc). Move your cursor through the paragraphs below.
 					</p>
 					<div className="flex flex-col gap-8">
@@ -372,7 +372,7 @@ export default function Demo() {
 							</MagnetChar>
 						))}
 					</div>
-					<p className="text-xs opacity-50 italic mt-8" style={{ lineHeight: "1.8" }}>
+					<p className="text-xs text-muted italic mt-8" style={{ lineHeight: "1.8" }}>
 						spreadRadius controls how far from the cursor each character's weight fades to its minimum. Use proximityRadius to gate the effect to when the cursor is near the element edge, or omit it to always respond. Both props are independent and combinable.
 					</p>
 				</>

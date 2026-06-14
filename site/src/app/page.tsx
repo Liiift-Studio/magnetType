@@ -14,27 +14,27 @@ export default function Home() {
 			{/* Hero */}
 			<section aria-label="Introduction" className="w-full max-w-2xl lg:max-w-5xl flex flex-col gap-6">
 				<div className="flex flex-col gap-2">
-					<p className="text-xs uppercase tracking-widest opacity-50">magnettype</p>
+					<p className="text-xs uppercase tracking-[0.18em] font-medium text-muted">magnettype</p>
 					<h1 className="text-4xl lg:text-8xl xl:text-9xl" style={{ fontFamily: "var(--font-merriweather), serif", fontVariationSettings: '"wght" 300, "opsz" 144', lineHeight: "1.05em" }}>
 						<MagnetChar as="span" minWeight={300} maxWeight={800} spreadRadius={220} fixedAxes={{ opsz: 144 }}>Per-word axis</MagnetChar><br />
-						<MagnetChar as="span" minWeight={300} maxWeight={800} spreadRadius={220} fixedAxes={{ opsz: 144 }} style={{ opacity: 0.5, fontStyle: "italic" }}>variation.</MagnetChar>
+						<MagnetChar as="span" minWeight={300} maxWeight={800} spreadRadius={220} fixedAxes={{ opsz: 144 }} style={{ color: "var(--foreground-subtle)", fontStyle: "italic" }}>variation.</MagnetChar>
 					</h1>
 				</div>
 				<div className="flex items-center gap-4">
 					<CopyInstall />
-					<a href="https://github.com/Liiift-Studio/MagnetType" className="text-sm opacity-50 hover:opacity-100 transition-opacity">GitHub</a>
+					<a href="https://github.com/Liiift-Studio/MagnetType" className="text-sm text-muted hover:text-foreground transition-colors">GitHub ↗</a>
 				</div>
-				<div className="flex flex-wrap gap-x-4 gap-y-1 text-xs opacity-50 tracking-wide">
+				<div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted tracking-wide">
 					<span>TypeScript</span><span aria-hidden="true">·</span><span>Zero dependencies</span><span aria-hidden="true">·</span><span>React + Vanilla JS</span>
 				</div>
-				<p className="text-base opacity-60 leading-relaxed max-w-lg">
+				<p className="text-base leading-relaxed max-w-lg">
 					CSS applies font-variation-settings to an entire element. Magnet Type applies them word by word or character by character — driven by cursor proximity. Words and characters inside the field attract toward a peak axis value; those outside hold at rest. Move your mouse through a paragraph and watch each word or letter respond independently.
 				</p>
 			</section>
 
 			{/* Demo */}
 			<section aria-label="Live demo" className="w-full max-w-2xl lg:max-w-5xl flex flex-col gap-4">
-				<h2 className="text-xs uppercase tracking-widest opacity-50">Live demo — move your cursor through the text</h2>
+				<h2 className="text-xs uppercase tracking-[0.18em] font-medium text-muted">Live demo — move your cursor through the text</h2>
 				<div className="rounded-xl -mx-8 px-8 py-8" style={{ background: "rgba(0,0,0,0.25)", overflow: 'hidden' }}>
 					<Demo />
 				</div>
@@ -42,22 +42,22 @@ export default function Home() {
 
 			{/* Explanation */}
 			<section aria-label="How it works" className="w-full max-w-2xl lg:max-w-5xl flex flex-col gap-6">
-				<h2 className="text-xs uppercase tracking-widest opacity-50">How it works</h2>
-				<div className="prose-grid grid grid-cols-1 sm:grid-cols-2 gap-12 text-sm leading-relaxed opacity-70">
+				<h2 className="text-xs uppercase tracking-[0.18em] font-medium text-muted">How it works</h2>
+				<div className="prose-grid grid grid-cols-1 sm:grid-cols-2 gap-12 text-sm leading-relaxed">
 					<div className="flex flex-col gap-3">
-						<p className="font-semibold opacity-100 text-base">The cursor field</p>
+						<p className="font-semibold text-foreground text-base">The cursor field</p>
 						<p>Each word gets a span. On every animation frame, the distance from the cursor to each word&rsquo;s center is measured. Words within the radius receive a font-variation-settings value interpolated between rest and peak — closer words get more of the peak value.</p>
 					</div>
 					<div className="flex flex-col gap-3">
-						<p className="font-semibold opacity-100 text-base">Attract and repel</p>
+						<p className="font-semibold text-foreground text-base">Attract and repel</p>
 						<p>In attract mode, nearby words approach the peak axis value and far words hold at rest. In repel mode, the logic inverts — words near the cursor stay at rest while words in the outer ring of the field approach peak. Each creates a different reading texture.</p>
 					</div>
 					<div className="flex flex-col gap-3">
-						<p className="font-semibold opacity-100 text-base">Field mode vs legibility mode</p>
+						<p className="font-semibold text-foreground text-base">Field mode vs legibility mode</p>
 						<p>Field mode runs a requestAnimationFrame loop driven by cursor position. Legibility mode is static — it wraps visually confusable characters (il1I, rn, 0O) in spans with a boosted wdth axis, improving disambiguation at small sizes without cursor interaction.</p>
 					</div>
 					<div className="flex flex-col gap-3">
-						<p className="font-semibold opacity-100 text-base">Performance via rAF batching</p>
+						<p className="font-semibold text-foreground text-base">Performance via rAF batching</p>
 						<p>The field loop reads word positions with <code className="text-xs font-mono">getBoundingClientRect</code> in a single batch pass, then writes all font-variation-settings in a second pass. No layout thrashing. The loop is cancelled on unmount and restarted when options change.</p>
 					</div>
 				</div>
@@ -66,12 +66,12 @@ export default function Home() {
 			{/* Usage */}
 			<section aria-label="Usage" className="w-full max-w-2xl lg:max-w-5xl flex flex-col gap-6">
 				<div className="flex items-baseline gap-4">
-					<h2 className="text-xs uppercase tracking-widest opacity-50">Usage</h2>
-					<p className="text-xs opacity-50 tracking-wide">TypeScript + React · Vanilla JS</p>
+					<h2 className="text-xs uppercase tracking-[0.18em] font-medium text-muted">Usage</h2>
+					<p className="text-xs text-muted tracking-wide">TypeScript + React · Vanilla JS</p>
 				</div>
 				<div className="flex flex-col gap-8 text-sm">
 					<div className="flex flex-col gap-3">
-						<p className="opacity-50">Drop-in component</p>
+						<p className="text-muted">Drop-in component</p>
 						<CodeBlock code={`import { MagnetTypeText } from '@liiift-studio/magnettype'
 
 <MagnetTypeText mode="word" axes={{ wght: [300, 600] }} radius={120}>
@@ -79,14 +79,14 @@ export default function Home() {
 </MagnetTypeText>`} />
 					</div>
 					<div className="flex flex-col gap-3">
-						<p className="opacity-50">Hook — attach to any element</p>
+						<p className="text-muted">Hook — attach to any element</p>
 						<CodeBlock code={`import { useMagnetType } from '@liiift-studio/magnettype'
 
 const ref = useMagnetType({ mode: 'word', axes: { wght: [300, 600] }, radius: 120 })
 <p ref={ref}>{children}</p>`} />
 					</div>
 					<div className="flex flex-col gap-3">
-						<p className="opacity-50">Per-character component</p>
+						<p className="text-muted">Per-character component</p>
 						<CodeBlock code={`import { MagnetChar } from '@liiift-studio/magnettype'
 
 <MagnetChar minWeight={300} maxWeight={900} spreadRadius={80}>
@@ -94,7 +94,7 @@ const ref = useMagnetType({ mode: 'word', axes: { wght: [300, 600] }, radius: 12
 </MagnetChar>`} />
 					</div>
 					<div className="flex flex-col gap-3">
-						<p className="opacity-50">Vanilla JS</p>
+						<p className="text-muted">Vanilla JS</p>
 						<CodeBlock code={`import { startMagnetType, getCleanHTML } from '@liiift-studio/magnettype'
 
 const el = document.querySelector('p')
@@ -103,11 +103,11 @@ const stop = startMagnetType(el, original, { axes: { wght: [300, 600] }, radius:
 // call stop() to cancel the rAF loop and restore markup`} />
 					</div>
 					<div className="flex flex-col gap-3">
-						<p className="opacity-50">Options</p>
+						<p className="text-muted">Options</p>
 						<table className="w-full text-xs" aria-label="MagnetType options reference">
 							<caption className="sr-only">MagnetType options reference</caption>
-							<thead><tr className="opacity-50 text-left"><th className="pb-2 pr-6 font-normal">Option</th><th className="pb-2 pr-6 font-normal">Default</th><th className="pb-2 font-normal">Description</th></tr></thead>
-							<tbody className="opacity-70">
+							<thead><tr className="text-subtle text-left"><th className="pb-2 pr-6 font-normal">Option</th><th className="pb-2 pr-6 font-normal">Default</th><th className="pb-2 font-normal">Description</th></tr></thead>
+							<tbody className="text-muted">
 								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors"><td className="py-2 pr-6 font-mono">mode</td><td className="py-2 pr-6">&apos;word&apos;</td><td className="py-2">&apos;word&apos; — cursor proximity drives per-word font-variation-settings. &apos;legibility&apos; — cursor-proximity-driven wdth boost for confusable characters; on touch devices the boost is always active.</td></tr>
 								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors"><td className="py-2 pr-6 font-mono">axes</td><td className="py-2 pr-6">&#123; wght: [300, 500] &#125;</td><td className="py-2">Map of axis tag → [restValue, peakValue]. restValue applies at full distance; peakValue when cursor is directly over the word.</td></tr>
 								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors"><td className="py-2 pr-6 font-mono">radius</td><td className="py-2 pr-6">120</td><td className="py-2">Pixel radius over which the field effect fades. Words beyond this distance receive restValue.</td></tr>
